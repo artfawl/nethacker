@@ -170,17 +170,7 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
     # TODO: also get items recursively from bags
     for item in agent.inventory.items:
         targeted_monsters = set()
-        # hypothesis: Letting low-level Healers proactively spend their otherwise-unused
-        # starting wand of sleep will turn lethal scalpel trades into safe early XP.
-        healer_sleep_wand = (
-            agent.character.role == agent.character.HEALER
-            and agent.blstats.experience_level < 8
-            and item.is_wand()
-            and item.is_unambiguous()
-            and item.object.name == 'sleep'
-            and item.uses != 'no charges'
-        )
-        if not item.is_offensive_usable_wand() and not healer_sleep_wand:
+        if not item.is_offensive_usable_wand():
             continue
         priority = 0
         # print('--------------', dy, dx)
@@ -202,8 +192,6 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
         if targeted_monsters:
             # priority = priority * (1 - player_hp_ratio) - 10
             priority = priority - 15
-            if healer_sleep_wand:
-                priority += 25
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
                 priority -= 100
             ret.append((priority, ('zap', dy, dx, item, targeted_monsters)))
