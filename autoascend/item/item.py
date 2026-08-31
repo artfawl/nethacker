@@ -218,7 +218,8 @@ class Item:
         if self.uses == 'no charges':
             # TODO: is it right ?
             return False
-        # hypothesis: treating the Healer's guaranteed wand of sleep as an offensive escape resource will prevent weak early characters from being forced into lethal melee.
+        if self.objs[0] == O.from_name('sleep', nh.WAND_CLASS):
+            return False
         if self.objs[0] == O.from_name('digging', nh.WAND_CLASS):
             return False
         return True
