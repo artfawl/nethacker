@@ -222,7 +222,12 @@ def elbereth_action(agent, monsters):
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
-        return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
+        priority = -15 + 20 * adj_monsters_count * (1 - player_hp_ratio)
+        # hypothesis: extending the proven low-HP Elbereth escape to human Healers will lift the weakest builds by turning early lethal melees into recoverable fights.
+        if agent.character.role == agent.character.HEALER and \
+                agent.blstats.experience_level < 8 and player_hp_ratio < 0.6 ** 0.5:
+            priority = max(priority, 25)
+        return [(priority, ('elbereth',))]
     return []
 
 
