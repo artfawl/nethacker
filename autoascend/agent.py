@@ -1404,6 +1404,16 @@ class Agent:
     @Strategy.wrap
     def emergency_strategy(self):
 
+        # hypothesis: preferring a safely cooled-down prayer at the existing emergency threshold will preserve human Healers' finite healing potions for danger during their pre-XP-8 farm.
+        if self.character.role == self.character.HEALER and \
+                self.character.race == self.character.HUMAN and \
+                self.blstats.experience_level < 8 and self.is_safe_to_pray(500) and \
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
+                 self.blstats.hitpoints < 8):
+            yield True
+            self.pray()
+            return
+
         # if self.should_cast_extra_heal():
         #     yield True
         #     self.cast('extra healing', direction=(0, 0))
