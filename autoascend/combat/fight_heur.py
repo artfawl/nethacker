@@ -222,13 +222,7 @@ def elbereth_action(agent, monsters):
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
-        priority = -15 + 20 * adj_monsters_count * (1 - player_hp_ratio)
-        # hypothesis: making Elbereth beat melee for gnome Healers below 60% HP before XP 8 will turn their otherwise lethal early fights into recoverable ones.
-        if agent.character.role == agent.character.HEALER and \
-                agent.character.race == agent.character.GNOME and \
-                agent.blstats.experience_level < 8 and player_hp_ratio < 0.6 ** 0.5:
-            priority = max(priority, 25)
-        return [(priority, ('elbereth',))]
+        return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
     return []
 
 
