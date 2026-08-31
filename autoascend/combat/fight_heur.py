@@ -169,8 +169,15 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
     player_hp_ratio = agent.blstats.hitpoints / agent.blstats.max_hitpoints
     # TODO: also get items recursively from bags
     for item in agent.inventory.items:
+        # hypothesis: spending a low-level Healer's otherwise-unused starting sleep wand at the 8-HP melee
+        # danger boundary will preserve healing resources and prevent deaths during the XP-8 farm.
+        emergency_sleep = item.is_unambiguous() and item.is_wand() and item.object.name == 'sleep' and \
+                          item.uses and ':' in item.uses and int(item.uses.split(':')[-1]) > 0 and \
+                          agent.character.role == agent.character.HEALER and \
+                          agent.blstats.experience_level < 8 and agent.blstats.hitpoints <= 8 and \
+                          agent._last_turn - agent.last_sleep_wand_turn >= 10
         targeted_monsters = set()
-        if not item.is_offensive_usable_wand():
+        if not item.is_offensive_usable_wand() and not emergency_sleep:
             continue
         priority = 0
         # print('--------------', dy, dx)
@@ -192,6 +199,8 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
         if targeted_monsters:
             # priority = priority * (1 - player_hp_ratio) - 10
             priority = priority - 15
+            if emergency_sleep:
+                priority += 35
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
                 priority -= 100
             ret.append((priority, ('zap', dy, dx, item, targeted_monsters)))
