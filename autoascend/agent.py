@@ -1421,7 +1421,10 @@ class Agent:
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
-            self.inventory.quaff(items[0])
+            # hypothesis: at emergency HP, maximizing immediate healing is safer than consuming
+            # whichever known healing potion happens to occupy the earliest inventory slot.
+            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
@@ -1435,7 +1438,10 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
+                # hypothesis: praying when foodless characters first become weak avoids entering an
+                # unrecoverable fainting cycle inside a fight while preserving prayer whenever food remains.
+                or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.WEAK
+                    and self.inventory.items.total_nutrition() == 0)
         ):
             yield True
             self.pray()
