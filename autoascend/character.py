@@ -81,6 +81,11 @@ class Property:
         return 'Blind' in bytes(self.agent.last_observation['tty_chars'][-1]).decode()
 
     @property
+    def sick(self):
+        status = bytes(self.agent.last_observation['tty_chars'][-1]).decode()
+        return 'Ill' in status or 'FoodPois' in status
+
+    @property
     def polymorph(self):
         if not nh.glyph_is_monster(self.agent.glyphs[self.agent.blstats.y, self.agent.blstats.x]):
             return False
