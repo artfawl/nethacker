@@ -515,7 +515,10 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                condition = lambda: self.agent.blstats.experience_level >= 8
+                # hypothesis: letting fragile healers descend at XP 5 avoids long, food-limited
+                # level-one farming and reaches higher-value monsters with enough HP to survive.
+                first_descent_xp = 5 if self.agent.character.role == Character.HEALER else 8
+                condition = lambda: self.agent.blstats.experience_level >= first_descent_xp
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
@@ -557,12 +560,7 @@ class GlobalLogic:
                 level = (Level.DUNGEONS_OF_DOOM, 100)
 
             if condition():
-                # hypothesis: once XL8 makes the character durable enough, descending the main dungeon
-                # yields safer, steadier progress than detouring through the crowded optional branches.
-                if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                    self.milestone = Milestone.GO_DOWN
-                else:
-                    self.milestone = Milestone(int(self.milestone) + 1)
+                self.milestone = Milestone(int(self.milestone) + 1)
                 continue
 
 
