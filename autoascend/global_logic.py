@@ -515,11 +515,9 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: weak healers gain more progression by leaving the depleted first level once
-                # they can handle the branch search, with gnomes ready earlier because Mines residents are peaceful.
-                first_descent_level = (5 if self.agent.character.race == Character.GNOME else 6) \
-                    if self.agent.character.role == Character.HEALER else 8
-                condition = lambda: self.agent.blstats.experience_level >= first_descent_level
+                # hypothesis: leaving Dlvl 1 at XL5 converts early survival into depth and higher-XP fights
+                # before prolonged level-one farming causes starvation or cumulative combat attrition.
+                condition = lambda: self.agent.blstats.experience_level >= 5
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
@@ -561,7 +559,10 @@ class GlobalLogic:
                 level = (Level.DUNGEONS_OF_DOOM, 100)
 
             if condition():
-                self.milestone = Milestone(int(self.milestone) + 1)
+                if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
+                    self.milestone = Milestone.GO_DOWN
+                else:
+                    self.milestone = Milestone(int(self.milestone) + 1)
                 continue
 
 
