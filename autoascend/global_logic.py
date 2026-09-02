@@ -515,7 +515,12 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                condition = lambda: self.agent.blstats.experience_level >= 8
+                # hypothesis: human healers should leave the low-reward first floor at XL3 so food, gear,
+                # and stronger monsters can carry the weakest builds toward XL8 before farming exhausts them.
+                early_healer_descent = self.agent.character.role == Character.HEALER and \
+                    self.agent.character.race == Character.HUMAN
+                first_descent_level = 3 if early_healer_descent else 8
+                condition = lambda: self.agent.blstats.experience_level >= first_descent_level
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
