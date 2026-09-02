@@ -1421,10 +1421,7 @@ class Agent:
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
-            # hypothesis: at emergency HP, maximizing immediate healing is safer than consuming
-            # whichever known healing potion happens to occupy the earliest inventory slot.
-            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
-            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
+            self.inventory.quaff(items[0])
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and

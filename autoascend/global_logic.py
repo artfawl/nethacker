@@ -515,9 +515,7 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: leaving dungeon level 1 at XP 5 avoids lethal, food-heavy farming and
-                # reaches deeper monsters soon enough to gain the remaining experience efficiently.
-                condition = lambda: self.agent.blstats.experience_level >= 5
+                condition = lambda: self.agent.blstats.experience_level >= 8
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
@@ -559,7 +557,12 @@ class GlobalLogic:
                 level = (Level.DUNGEONS_OF_DOOM, 100)
 
             if condition():
-                self.milestone = Milestone(int(self.milestone) + 1)
+                # hypothesis: once XL8 makes the character durable enough, descending the main dungeon
+                # yields safer, steadier progress than detouring through the crowded optional branches.
+                if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
+                    self.milestone = Milestone.GO_DOWN
+                else:
+                    self.milestone = Milestone(int(self.milestone) + 1)
                 continue
 
 
