@@ -557,7 +557,12 @@ class GlobalLogic:
                 level = (Level.DUNGEONS_OF_DOOM, 100)
 
             if condition():
-                self.milestone = Milestone(int(self.milestone) + 1)
+                # hypothesis: once XL8 makes the character durable enough, descending the main dungeon
+                # yields safer, steadier progress than detouring through the crowded optional branches.
+                if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
+                    self.milestone = Milestone.GO_DOWN
+                else:
+                    self.milestone = Milestone(int(self.milestone) + 1)
                 continue
 
 

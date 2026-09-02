@@ -77,7 +77,6 @@ class Agent:
         self._allow_attack_all_turn = -float('inf')
 
         self.last_cast_fail_turn = defaultdict(lambda: -float('inf'))
-        self._last_sleep_wand_turn = -float('inf')
 
         self.stats_logger = StatsLogger()
 
@@ -1214,8 +1213,6 @@ class Agent:
 
             with self.env.debug_tiles([[my, mx] for my, mx, _ in targeted_monsters],
                                       (255, 0, 255, 255), mode='frame'):
-                if wand.is_unambiguous() and wand.object.name == 'sleep':
-                    self._last_sleep_wand_turn = self._last_turn
                 self.zap(wand, dir)
             return wait_counter
 
@@ -1424,10 +1421,7 @@ class Agent:
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
-            # hypothesis: at emergency HP, maximizing immediate healing is safer than consuming
-            # whichever known healing potion happens to occupy the earliest inventory slot.
-            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
-            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
+            self.inventory.quaff(items[0])
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
@@ -1477,6 +1471,13 @@ class Agent:
     @utils.debug_log('cure_disease')
     @Strategy.wrap
     def cure_disease(self):
+        # hypothesis: food poisoning is an imminent lethal trouble, so spending a safe prayer when
+        # the status first appears preserves corpse nutrition without accepting a delayed death.
+        if self.character.prop.sick and self.is_safe_to_pray():
+            yield True
+            self.pray()
+            return
+
         if self.character.is_lycanthrope:
             # spring of wolfsbane
             for item in flatten_items(self.inventory.items):

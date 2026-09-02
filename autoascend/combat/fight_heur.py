@@ -4,9 +4,9 @@ from itertools import product
 import numpy as np
 from scipy import signal
 
-from ..glyph import G, MON
+from ..glyph import G
 from ..utils import adjacent
-from .monster_utils import is_monster_faster, is_dangerous_monster, imminent_death_on_melee, \
+from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
@@ -167,37 +167,19 @@ def simulate_wand_path(agent, wand, monsters, dy, dx):
 def get_potential_wand_usages(agent, monsters, dy, dx):
     ret = []
     player_hp_ratio = agent.blstats.hitpoints / agent.blstats.max_hitpoints
-    sleep_threats = {
-        (y, x) for monster in monsters for _, y, x, mon, _ in [monster]
-        if adjacent((y, x), (agent.blstats.y, agent.blstats.x))
-        and imminent_death_on_melee(agent, monster)
-        and mon.mname not in WEAK_MONSTERS
-        and not mon.mresists & MON.MR_SLEEP
-    }
     # TODO: also get items recursively from bags
     for item in agent.inventory.items:
-        is_sleep_wand = item.is_unambiguous() and item.is_ray_wand() and item.object.name == 'sleep' \
-                        and item.uses != 'no charges'
-        if is_sleep_wand:
-            # hypothesis: a cooldown-limited safe sleep ray against an adjacent lethal threat turns the
-            # healer's otherwise-unused starting wand into proactive defense without repeatedly zapping sleepers.
-            if not sleep_threats or agent._last_turn - agent._last_sleep_wand_turn < 6:
-                continue
         targeted_monsters = set()
-        if not is_sleep_wand and not item.is_offensive_usable_wand():
+        if not item.is_offensive_usable_wand():
             continue
         priority = 0
-        sleep_targets_hit = set()
-        sleep_collateral = 0
         # print('--------------', dy, dx)
         for y, x, monster, p in simulate_wand_path(agent, item, monsters, dy, dx):
             # print(y, x, monster, p)
             if monster == 'pet':
                 priority -= p * 20
-                sleep_collateral += p
             elif monster == 'self':
                 priority -= p * 30
-                sleep_collateral += p
             elif monster is not None:
                 _, y, x, mon, _ = monster
                 if mon.mname in WEAK_MONSTERS:
@@ -207,15 +189,6 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
                 else:
                     priority += min(p, 1) * 10
                 targeted_monsters.add((y, x, monster))
-                if (y, x) in sleep_threats:
-                    sleep_targets_hit.add((y, x))
-            if is_sleep_wand and agent.monster_tracker.peaceful_monster_mask[y, x]:
-                sleep_collateral += p
-        if is_sleep_wand:
-            if sleep_targets_hit:
-                priority = 24 + 8 * (len(sleep_targets_hit) - 1) - 40 * sleep_collateral
-                ret.append((priority, ('zap', dy, dx, item, targeted_monsters)))
-            continue
         if targeted_monsters:
             # priority = priority * (1 - player_hp_ratio) - 10
             priority = priority - 15
