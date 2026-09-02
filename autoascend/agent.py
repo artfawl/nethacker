@@ -77,6 +77,7 @@ class Agent:
         self._allow_attack_all_turn = -float('inf')
 
         self.last_cast_fail_turn = defaultdict(lambda: -float('inf'))
+        self._last_sleep_wand_turn = -float('inf')
 
         self.stats_logger = StatsLogger()
 
@@ -1213,6 +1214,8 @@ class Agent:
 
             with self.env.debug_tiles([[my, mx] for my, mx, _ in targeted_monsters],
                                       (255, 0, 255, 255), mode='frame'):
+                if wand.is_unambiguous() and wand.object.name == 'sleep':
+                    self._last_sleep_wand_turn = self._last_turn
                 self.zap(wand, dir)
             return wait_counter
 
@@ -1416,13 +1419,9 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        # hypothesis: a healer threatened at 8-9 HP should spend an abundant starting
-        # healing potion before a single ordinary hit can cross the old emergency floor.
-        healer_in_one_hit_range = self.character.role == Character.HEALER and self.blstats.hitpoints < 10 and \
-            any(monster[0] <= 2 for monster in self.get_visible_monsters())
         if (
                 (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8 or healer_in_one_hit_range) and items
+                 or self.blstats.hitpoints < 8) and items
         ):
             yield True
             # hypothesis: at emergency HP, maximizing immediate healing is safer than consuming
