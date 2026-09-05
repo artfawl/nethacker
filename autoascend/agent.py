@@ -1416,14 +1416,19 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
-        ):
+        # hypothesis: Priests survive multi-attack damage by using identified
+        # healing earlier; Healers keep the conservative threshold that preserves
+        # their larger starting potion supply for true emergencies.
+        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
+                      self.blstats.hitpoints < 8)
+        if self.character.role == Character.PRIEST:
+            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
+                          self.blstats.hitpoints < 12)
+        if low_health and items:
             yield True
-            if self.character.role == self.character.HEALER:
-                # hypothesis: at emergency HP, a Healer should maximize immediate
-                # recovery instead of consuming the first of several known potions.
+            # hypothesis: human Healers survive early multi-attack turns by taking
+            # their strongest known healing potion when already at emergency HP.
+            if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
                 healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
                 item = max(items, key=lambda item: healing_power[item.object.name])
             else:
