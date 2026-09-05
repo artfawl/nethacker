@@ -1303,8 +1303,11 @@ class Agent:
             return False
 
         # corpse aging
-        if self.blstats.time - age_turn >= 50 and \
-                monster_id not in [MON.id_from_name('lizard'), MON.id_from_name('lichen')]:
+        corpse_age = self.blstats.time - age_turn
+        never_rots = monster_id in [MON.id_from_name('lizard'), MON.id_from_name('lichen')]
+        # hypothesis: skipping borderline-old, low-nutrition corpses avoids taint deaths without
+        # discarding substantial food that hunger-prone identities need to survive.
+        if not never_rots and (corpse_age >= 50 or (corpse_age >= 39 and permonst.cnutrit <= 50)):
             return False
 
         return True
@@ -1416,24 +1419,15 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        # hypothesis: Priests survive multi-attack damage by using identified
-        # healing earlier; Healers keep the conservative threshold that preserves
-        # their larger starting potion supply for true emergencies.
-        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
-                      self.blstats.hitpoints < 8)
-        if self.character.role == Character.PRIEST:
-            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
-                          self.blstats.hitpoints < 12)
-        if low_health and items:
+        if (
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
+                 or self.blstats.hitpoints < 8) and items
+        ):
             yield True
-            # hypothesis: human Healers survive early multi-attack turns by taking
-            # their strongest known healing potion when already at emergency HP.
-            if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
-                item = max(items, key=lambda item: healing_power[item.object.name])
-            else:
-                item = items[0]
-            self.inventory.quaff(item)
+            # hypothesis: at emergency HP, maximizing immediate healing is safer than consuming
+            # whichever known healing potion happens to occupy the earliest inventory slot.
+            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
