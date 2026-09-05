@@ -1127,8 +1127,7 @@ class Agent:
                 yielded = True
                 yield True
                 self.character.parse_enhance_view()
-                if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                    self.character.parse_spellcast_view()
+                # self.character.parse_spellcast_view()
 
             move_priority_heatmap, actions = combat.fight_heur.get_priorities(self)
             actions.extend(combat.fight_heur.get_move_actions(self, dis, move_priority_heatmap))
@@ -1304,8 +1303,11 @@ class Agent:
             return False
 
         # corpse aging
-        if self.blstats.time - age_turn >= 50 and \
-                monster_id not in [MON.id_from_name('lizard'), MON.id_from_name('lichen')]:
+        corpse_age = self.blstats.time - age_turn
+        never_rots = monster_id in [MON.id_from_name('lizard'), MON.id_from_name('lichen')]
+        # hypothesis: skipping borderline-old, low-nutrition corpses avoids taint deaths without
+        # discarding substantial food that hunger-prone identities need to survive.
+        if not never_rots and (corpse_age >= 50 or (corpse_age >= 39 and permonst.cnutrit <= 50)):
             return False
 
         return True
@@ -1410,11 +1412,10 @@ class Agent:
         #     self.cast('extra healing', direction=(0, 0))
         #     return
 
-        # hypothesis: combining the retained gnome-Healer Elbereth defense with human-only healing-spell use will lift the weakest human Healers without perturbing the stronger gnome policy.
-        if self.character.race == Character.HUMAN and self.should_cast_heal():
-            yield True
-            self.cast('healing', direction=(0, 0))
-            return
+        # if self.should_cast_heal():
+        #     yield True
+        #     self.cast('healing', direction=(0, 0))
+        #     return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
@@ -1423,7 +1424,10 @@ class Agent:
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
-            self.inventory.quaff(items[0])
+            # hypothesis: at emergency HP, maximizing immediate healing is safer than consuming
+            # whichever known healing potion happens to occupy the earliest inventory slot.
+            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
@@ -1521,8 +1525,7 @@ class Agent:
                         ((Level.PLANE, 1), (None, None))  # TODO: check level num
                     self.character.parse()
                     self.character.parse_enhance_view()
-                    if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                        self.character.parse_spellcast_view()
+                    # self.character.parse_spellcast_view()
                     self.step(A.Command.AUTOPICKUP)
                     if 'Autopickup: ON' in self.message:
                         self.step(A.Command.AUTOPICKUP)
