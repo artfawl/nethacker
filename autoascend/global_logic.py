@@ -515,16 +515,7 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: Healers gain more progression by leaving the depleted level-1 farm at
-                # XP 7, while melee-stronger Priests retain the safer and productive XP-8 threshold.
-                condition = lambda: (
-                    self.agent.blstats.experience_level >= 8 or
-                    (self.agent.character.role == Character.HEALER and
-                     self.agent.blstats.experience_level >= 7) or
-                    (self.agent.blstats.experience_level >= 6 and
-                     self.agent.blstats.hunger_state >= Hunger.HUNGRY and
-                     self.agent.inventory.items.total_nutrition() == 0)
-                )
+                condition = lambda: self.agent.blstats.experience_level >= 8
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
