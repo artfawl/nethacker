@@ -1416,12 +1416,20 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
-        ):
+        # hypothesis: Priests survive multi-attack damage by using identified
+        # healing earlier; Healers keep the conservative threshold that preserves
+        # their larger starting potion supply for true emergencies.
+        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
+                      self.blstats.hitpoints < 8)
+        if self.character.role == Character.PRIEST:
+            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
+                          self.blstats.hitpoints < 12)
+        if low_health and items:
             yield True
-            self.inventory.quaff(items[0])
+            # hypothesis: drinking the strongest known healing potion at emergency HP prevents
+            # weak heals from losing the next damage race, especially for potion-rich Healers.
+            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
@@ -1435,10 +1443,7 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                # hypothesis: Priests should pray as soon as hunger becomes WEAK, avoiding a fatal
-                # faint while leaving the Healers' stronger existing resource loop undisturbed.
-                or (self.character.role == Character.PRIEST and self.is_safe_to_pray(400)
-                    and self.blstats.hunger_state >= Hunger.WEAK)
+                or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
             yield True
             self.pray()
