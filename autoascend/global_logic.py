@@ -557,7 +557,13 @@ class GlobalLogic:
                 level = (Level.DUNGEONS_OF_DOOM, 100)
 
             if condition():
-                self.milestone = Milestone(int(self.milestone) + 1)
+                # hypothesis: elves should skip the Gnomish Mines after the XP-8 farm because its
+                # hostile gnomes and dwarves make the main dungeon the safer progression route.
+                if self.milestone == Milestone.BE_ON_FIRST_LEVEL and \
+                        self.agent.character.race == Character.ELF:
+                    self.milestone = Milestone.GO_DOWN
+                else:
+                    self.milestone = Milestone(int(self.milestone) + 1)
                 continue
 
 
