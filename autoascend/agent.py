@@ -1127,8 +1127,7 @@ class Agent:
                 yielded = True
                 yield True
                 self.character.parse_enhance_view()
-                if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                    self.character.parse_spellcast_view()
+                # self.character.parse_spellcast_view()
 
             move_priority_heatmap, actions = combat.fight_heur.get_priorities(self)
             actions.extend(combat.fight_heur.get_move_actions(self, dis, move_priority_heatmap))
@@ -1410,18 +1409,22 @@ class Agent:
         #     self.cast('extra healing', direction=(0, 0))
         #     return
 
-        # hypothesis: combining the retained gnome-Healer Elbereth defense with human-only healing-spell use will lift the weakest human Healers without perturbing the stronger gnome policy.
-        if self.character.race == Character.HUMAN and self.should_cast_heal():
-            yield True
-            self.cast('healing', direction=(0, 0))
-            return
+        # if self.should_cast_heal():
+        #     yield True
+        #     self.cast('healing', direction=(0, 0))
+        #     return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
-        ):
+        # hypothesis: Priests survive multi-attack damage by using identified
+        # healing earlier; Healers keep the conservative threshold that preserves
+        # their larger starting potion supply for true emergencies.
+        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
+                      self.blstats.hitpoints < 8)
+        if self.character.role == Character.PRIEST:
+            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
+                          self.blstats.hitpoints < 12)
+        if low_health and items:
             yield True
             self.inventory.quaff(items[0])
             return
@@ -1521,8 +1524,7 @@ class Agent:
                         ((Level.PLANE, 1), (None, None))  # TODO: check level num
                     self.character.parse()
                     self.character.parse_enhance_view()
-                    if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                        self.character.parse_spellcast_view()
+                    # self.character.parse_spellcast_view()
                     self.step(A.Command.AUTOPICKUP)
                     if 'Autopickup: ON' in self.message:
                         self.step(A.Command.AUTOPICKUP)
