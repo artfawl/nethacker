@@ -1426,10 +1426,14 @@ class Agent:
                           self.blstats.hitpoints < 12)
         if low_health and items:
             yield True
-            # hypothesis: drinking the strongest known healing potion at emergency HP prevents
-            # weak heals from losing the next damage race, especially for potion-rich Healers.
-            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
-            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
+            # hypothesis: human Healers need their strongest known emergency potion because they
+            # lack the gnome Healer's early Elbereth safety net; other builds preserve the old order.
+            if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
+                healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+                item = max(items, key=lambda candidate: healing_power[candidate.object.name])
+            else:
+                item = items[0]
+            self.inventory.quaff(item)
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
