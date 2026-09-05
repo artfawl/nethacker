@@ -1303,11 +1303,8 @@ class Agent:
             return False
 
         # corpse aging
-        corpse_age = self.blstats.time - age_turn
-        never_rots = monster_id in [MON.id_from_name('lizard'), MON.id_from_name('lichen')]
-        # hypothesis: skipping borderline-old, low-nutrition corpses avoids taint deaths without
-        # discarding substantial food that hunger-prone identities need to survive.
-        if not never_rots and (corpse_age >= 50 or (corpse_age >= 39 and permonst.cnutrit <= 50)):
+        if self.blstats.time - age_turn >= 50 and \
+                monster_id not in [MON.id_from_name('lizard'), MON.id_from_name('lichen')]:
             return False
 
         return True
@@ -1424,10 +1421,7 @@ class Agent:
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
-            # hypothesis: at emergency HP, maximizing immediate healing is safer than consuming
-            # whichever known healing potion happens to occupy the earliest inventory slot.
-            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
-            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
+            self.inventory.quaff(items[0])
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
@@ -1441,7 +1435,10 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
+                # hypothesis: Priests should pray as soon as hunger becomes WEAK, avoiding a fatal
+                # faint while leaving the Healers' stronger existing resource loop undisturbed.
+                or (self.character.role == Character.PRIEST and self.is_safe_to_pray(400)
+                    and self.blstats.hunger_state >= Hunger.WEAK)
         ):
             yield True
             self.pray()
