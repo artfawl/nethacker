@@ -1419,15 +1419,21 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
-        ):
+        human_healer = self.character.role == Character.HEALER and \
+            self.character.race == Character.HUMAN
+        elf_priest = self.character.role == Character.PRIEST and \
+            self.character.race == Character.ELF
+        # hypothesis: fragile casters survive longer when their panic policy matches their reliable
+        # resource: human Healers spend their guaranteed cure/sleep kit, while Elf Priests pray
+        # earlier and conserve scarce healing potions; other identities keep their proven policy.
+        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
+                      self.blstats.hitpoints < 8)
+        if self.character.role == Character.PRIEST and not elf_priest:
+            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
+                          self.blstats.hitpoints < 12)
+        if low_health and items:
             yield True
-            # hypothesis: a role-aware Healer panic kit--the strongest known cure for humans,
-            # a charged sleep ray against adjacent lethal threats, and prayer at fainting--uses
-            # their guaranteed emergency resources before death without perturbing Priests.
-            if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
+            if human_healer:
                 healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
                 item = max(items, key=lambda candidate: healing_power[candidate.object.name])
             else:
@@ -1446,11 +1452,8 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                # Preserve the Priest's earlier hunger-prayer threshold; Healers reserve it for fainting.
-                or (self.character.role == Character.PRIEST and self.is_safe_to_pray(400)
-                    and self.blstats.hunger_state >= Hunger.WEAK)
-                or (self.character.role == Character.HEALER and self.is_safe_to_pray(400)
-                    and self.blstats.hunger_state >= Hunger.FAINTING)
+                or (self.is_safe_to_pray(400) and
+                    self.blstats.hunger_state >= (Hunger.WEAK if elf_priest else Hunger.FAINTING))
         ):
             yield True
             self.pray()
