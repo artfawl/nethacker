@@ -78,6 +78,11 @@ class Agent:
 
         self.last_cast_fail_turn = defaultdict(lambda: -float('inf'))
 
+        # hypothesis: coordinating Healers' emergency reserves--a safe hunger prayer for
+        # both races, plus the human Healer's sleep wand and strongest known cure--will
+        # turn lethal level-one resource hoarding into survival without perturbing Priests.
+        self._last_sleep_wand_turn = -float('inf')
+
         self.stats_logger = StatsLogger()
 
     @property
@@ -636,15 +641,6 @@ class Agent:
                 if (0 <= y < level.forbidden.shape[0] and 0 <= x < level.forbidden.shape[1]) \
                         and not level.walkable[y, x]:
                     level.forbidden[y, x] = True
-
-        # hypothesis: remembering a door beside the canonical "Closed for inventory" sign
-        # prevents every identity from kicking a locked shop door and turning its shopkeeper
-        # into a lethal enemy, without changing ordinary door exploration.
-        if self.inventory.engraving_below_me.lower() == 'closed for inventory':
-            for y, x in self.neighbors(self.blstats.y, self.blstats.x,
-                                       shuffle=False, diagonal=False):
-                if self.glyphs[y, x] in G.DOOR_CLOSED:
-                    level.closed_shop_doors[y, x] = True
 
     ######## TRIVIAL HELPERS
 
@@ -1222,6 +1218,8 @@ class Agent:
 
             with self.env.debug_tiles([[my, mx] for my, mx, _ in targeted_monsters],
                                       (255, 0, 255, 255), mode='frame'):
+                if wand.is_unambiguous() and wand.object.name == 'sleep':
+                    self._last_sleep_wand_turn = self._last_turn
                 self.zap(wand, dir)
             return wait_counter
 
@@ -1430,7 +1428,12 @@ class Agent:
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
-            self.inventory.quaff(items[0])
+            if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
+                healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+                item = max(items, key=lambda candidate: healing_power[candidate.object.name])
+            else:
+                item = items[0]
+            self.inventory.quaff(item)
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
@@ -1448,6 +1451,8 @@ class Agent:
                 # faint while leaving the Healers' stronger existing resource loop undisturbed.
                 or (self.character.role == Character.PRIEST and self.is_safe_to_pray(400)
                     and self.blstats.hunger_state >= Hunger.WEAK)
+                or (self.character.role == Character.HEALER and self.is_safe_to_pray(400)
+                    and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
             yield True
             self.pray()

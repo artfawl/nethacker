@@ -29,7 +29,6 @@ class Level:
         self.shop = np.zeros((C.SIZE_Y, C.SIZE_X), bool)
         self.shop_interior = np.zeros((C.SIZE_Y, C.SIZE_X), bool)
         self.shop_type = np.zeros((C.SIZE_Y, C.SIZE_X), np.int32) + SHOP.UNKNOWN
-        self.closed_shop_doors = np.zeros((C.SIZE_Y, C.SIZE_X), bool)
 
         self.search_count = np.zeros((C.SIZE_Y, C.SIZE_X), np.int32)
         self.door_open_count = np.zeros((C.SIZE_Y, C.SIZE_X), np.int32)
