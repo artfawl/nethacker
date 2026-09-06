@@ -238,7 +238,14 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
                 priority = 24 + 8 * (len(sleep_targets_hit) - 1) - 40 * sleep_collateral
                 ret.append((priority, ('zap', dy, dx, item, targeted_monsters)))
             continue
-        if targeted_monsters and not (vulnerable_rothe_targeted and peaceful_collateral):
+        dangerous_targeted = any(is_dangerous_monster(monster)
+                                 for _, _, monster in targeted_monsters)
+        # hypothesis: before XP 10, peaceful collateral is justified only against a dangerous
+        # target; angering guards to ray ordinary monsters creates a larger threat than it removes.
+        unsafe_peaceful_ray = peaceful_collateral and \
+            (vulnerable_rothe_targeted or
+             (agent.blstats.experience_level < 10 and not dangerous_targeted))
+        if targeted_monsters and not unsafe_peaceful_ray:
             # priority = priority * (1 - player_hp_ratio) - 10
             priority = priority - 15
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
