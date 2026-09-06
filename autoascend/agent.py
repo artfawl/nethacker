@@ -1423,8 +1423,8 @@ class Agent:
                        self.character.race == Character.HUMAN
         elf_priest = self.character.role == Character.PRIEST and \
                      self.character.race == Character.ELF
-        # hypothesis: a hungry Elf Priest should reserve healing potions and pray early while the
-        # XP farm is productive, but descend when still XP 1 after visiting most of the floor.
+        # hypothesis: matching fragile characters' level-one survival policy to their reliable
+        # emergency resources lets them finish the XP farm instead of dying with those resources unused.
         low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
                       self.blstats.hitpoints < 8)
         if self.character.role == Character.PRIEST and not elf_priest:
