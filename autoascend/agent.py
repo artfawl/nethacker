@@ -77,6 +77,7 @@ class Agent:
         self._allow_attack_all_turn = -float('inf')
 
         self.last_cast_fail_turn = defaultdict(lambda: -float('inf'))
+        self._last_sleep_wand_turn = -float('inf')
 
         self.stats_logger = StatsLogger()
 
@@ -494,6 +495,8 @@ class Agent:
 
     def _update_level_items(self):
         level = self.current_level()
+        if 'cursing shoplifters' in self.message:
+            level.heard_shopkeeper = True
 
         level.items[self.blstats.y, self.blstats.x] = self.inventory.items_below_me
         level.item_count[self.blstats.y, self.blstats.x] = len(self.inventory.items_below_me)
@@ -595,8 +598,6 @@ class Agent:
             self._last_pet_seen = self.blstats.time
 
         level = self.current_level()
-        if 'cursing shoplifters' in self.message:
-            level.heard_shopkeeper = True
 
         mask = utils.isin(self.glyphs, G.FLOOR, G.STAIR_UP, G.STAIR_DOWN, G.DOOR_OPENED, G.TRAPS,
                           G.ALTAR, G.FOUNTAIN)
@@ -639,7 +640,8 @@ class Agent:
                         and not level.walkable[y, x]:
                     level.forbidden[y, x] = True
 
-        # hypothesis: combining prior shopkeeper sound with a "Closed for inventory" sign will identify and avoid the adjacent shop door before the bot kicks it down and turns a peaceful shopkeeper into a lethal enemy.
+        # hypothesis: remembering the door beside a "Closed for inventory" sign after hearing
+        # its shopkeeper prevents every identity from kicking it down and creating a lethal enemy.
         if level.heard_shopkeeper and \
                 self.inventory.engraving_below_me.lower() == 'closed for inventory':
             for y, x in self.neighbors(self.blstats.y, self.blstats.x,
@@ -1223,6 +1225,8 @@ class Agent:
 
             with self.env.debug_tiles([[my, mx] for my, mx, _ in targeted_monsters],
                                       (255, 0, 255, 255), mode='frame'):
+                if wand.is_unambiguous() and wand.object.name == 'sleep':
+                    self._last_sleep_wand_turn = self._last_turn
                 self.zap(wand, dir)
             return wait_counter
 
@@ -1426,9 +1430,8 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        # hypothesis: Priests survive multi-attack damage by using identified
-        # healing earlier; Healers keep the conservative threshold that preserves
-        # their larger starting potion supply for true emergencies.
+        human_healer = self.character.role == Character.HEALER and \
+                       self.character.race == Character.HUMAN
         low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
                       self.blstats.hitpoints < 8)
         if self.character.role == Character.PRIEST:
@@ -1436,10 +1439,12 @@ class Agent:
                           self.blstats.hitpoints < 12)
         if low_health and items:
             yield True
-            # hypothesis: drinking the strongest known healing potion at emergency HP prevents
-            # weak heals from losing the next damage race, especially for potion-rich Healers.
-            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
-            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
+            if human_healer:
+                healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+                item = max(items, key=lambda candidate: healing_power[candidate.object.name])
+            else:
+                item = items[0]
+            self.inventory.quaff(item)
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and

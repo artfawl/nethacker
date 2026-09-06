@@ -404,13 +404,7 @@ class GlobalLogic:
         if not item.is_corpse() or item.comment == 'old':
             return False
 
-        permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
-        mname = permonst.mname
-        # hypothesis: refusing ambiguous domestic corpses at very low experience prevents
-        # sacrificing a dead starting pet and provoking a lethal divine minion.
-        if self.agent.blstats.experience_level < 3 and permonst.mflags2 & MON.M2_DOMESTIC:
-            return False
-
+        mname = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF).mname
         if (mname == 'pony' and self.agent.character.role in [Character.KNIGHT, Character.BARBARIAN]) or \
                 (mname == 'kitten' and self.agent.character.role == [Character.BARBARIAN, Character.WIZARD]) or \
                 (mname == 'little dog' and item.naming):  # little dogs are always named
