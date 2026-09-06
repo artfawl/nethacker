@@ -24,8 +24,6 @@ def is_dangerous_monster(agent, monster):
     _, y, x, mon, _ = monster
     is_pet = 'dog' in mon.mname or 'cat' in mon.mname or 'kitten' in mon.mname or 'pony' in mon.mname \
              or 'horse' in mon.mname
-    # hypothesis: Priests survive rothe encounters by treating its three-attack,
-    # 14-damage melee as dangerous and disengaging before it can kill in one turn.
     is_burst_melee = agent.character.role == agent.character.PRIEST and mon.mname == 'rothe'
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \

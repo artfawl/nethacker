@@ -6,8 +6,9 @@ from scipy import signal
 
 from ..glyph import G, MON
 from ..utils import adjacent
-from .monster_utils import is_monster_faster, is_dangerous_monster, imminent_death_on_melee, \
-    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
+from .monster_utils import is_monster_faster, is_dangerous_monster, \
+    imminent_death_on_melee, ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, \
+    consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -191,11 +192,8 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
             sleep_charges = int(item.uses.rsplit(':', 1)[1])
         is_sleep_wand = item.is_unambiguous() and item.is_ray_wand() and item.object.name == 'sleep' \
                         and item.uses not in ('no charge', 'no charges') and sleep_charges != 0
-        if is_sleep_wand:
-            # hypothesis: human Healers survive burst-damage fights by spending charged sleep rays and
-            # their strongest safe cure as a coordinated panic kit instead of dying with either resource unused.
-            if not sleep_threats or agent._last_turn - agent._last_sleep_wand_turn < 6:
-                continue
+        if is_sleep_wand and (not sleep_threats or agent._last_turn - agent._last_sleep_wand_turn < 6):
+            continue
         targeted_monsters = set()
         if not is_sleep_wand and not item.is_offensive_usable_wand():
             continue
