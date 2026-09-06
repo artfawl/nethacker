@@ -495,8 +495,6 @@ class Agent:
 
     def _update_level_items(self):
         level = self.current_level()
-        if 'cursing shoplifters' in self.message:
-            level.heard_shopkeeper = True
 
         level.items[self.blstats.y, self.blstats.x] = self.inventory.items_below_me
         level.item_count[self.blstats.y, self.blstats.x] = len(self.inventory.items_below_me)
@@ -639,15 +637,6 @@ class Agent:
                 if (0 <= y < level.forbidden.shape[0] and 0 <= x < level.forbidden.shape[1]) \
                         and not level.walkable[y, x]:
                     level.forbidden[y, x] = True
-
-        # hypothesis: remembering the door beside a "Closed for inventory" sign after hearing
-        # its shopkeeper prevents every identity from kicking it down and creating a lethal enemy.
-        if level.heard_shopkeeper and \
-                self.inventory.engraving_below_me.lower() == 'closed for inventory':
-            for y, x in self.neighbors(self.blstats.y, self.blstats.x,
-                                       shuffle=False, diagonal=False):
-                if self.glyphs[y, x] in G.DOOR_CLOSED:
-                    level.closed_shop_doors[y, x] = True
 
     ######## TRIVIAL HELPERS
 
