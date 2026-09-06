@@ -1447,12 +1447,13 @@ class Agent:
             self.inventory.quaff(items[0])
             return
 
-        # hypothesis: an established but still fragile human Priest with no ordinary food should
-        # spend reserved wolfsbane at FAINTING, preserving prayer for stronger threats; Elf Priests
-        # keep their existing early-hunger prayer policy.
+        # hypothesis: a robust human Priest should spend reserved wolfsbane only to bridge an
+        # unsafe prayer cooldown at FAINTING, preventing starvation without replacing a safe,
+        # more nourishing prayer; fragile Priests keep the proven unconditional fallback.
         if self.blstats.hunger_state >= Hunger.FAINTING and \
                 self.character.role == Character.PRIEST and self.character.race == Character.HUMAN and \
-                self.blstats.experience_level >= 3 and self.blstats.max_hitpoints <= 25:
+                self.blstats.experience_level >= 3 and \
+                (self.blstats.max_hitpoints <= 25 or not self.is_safe_to_pray(400)):
             food_items = [item for item in flatten_items(self.inventory.items)
                           if item.is_unambiguous() and item.category == nh.FOOD_CLASS]
             sprigs = [item for item in food_items if item.object.name == 'sprig of wolfsbane']
