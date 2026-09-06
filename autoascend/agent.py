@@ -637,6 +637,15 @@ class Agent:
                         and not level.walkable[y, x]:
                     level.forbidden[y, x] = True
 
+        # hypothesis: remembering a door beside the canonical "Closed for inventory" sign
+        # prevents every identity from kicking a locked shop door and turning its shopkeeper
+        # into a lethal enemy, without changing ordinary door exploration.
+        if self.inventory.engraving_below_me.lower() == 'closed for inventory':
+            for y, x in self.neighbors(self.blstats.y, self.blstats.x,
+                                       shuffle=False, diagonal=False):
+                if self.glyphs[y, x] in G.DOOR_CLOSED:
+                    level.closed_shop_doors[y, x] = True
+
     ######## TRIVIAL HELPERS
 
     def current_level(self):
@@ -1435,12 +1444,10 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                # hypothesis: preserving the Priest's early WEAK prayer while giving every identity
-                # a last-resort FAINTING prayer prevents helpless turns and starvation without
-                # spending other roles' prayer before their food is exhausted.
-                or (self.is_safe_to_pray(400) and
-                    ((self.character.role == Character.PRIEST and self.blstats.hunger_state >= Hunger.WEAK)
-                     or self.blstats.hunger_state >= Hunger.FAINTING))
+                # hypothesis: Priests should pray as soon as hunger becomes WEAK, avoiding a fatal
+                # faint while leaving the Healers' stronger existing resource loop undisturbed.
+                or (self.character.role == Character.PRIEST and self.is_safe_to_pray(400)
+                    and self.blstats.hunger_state >= Hunger.WEAK)
         ):
             yield True
             self.pray()

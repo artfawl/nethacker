@@ -204,12 +204,15 @@ def elbereth_action(agent, monsters):
     if not agent.can_engrave():
         return []
     adj_monsters_count = 0
+    adjacent_melee_threats = 0
     for monster in monsters:
         _, my, mx, mon, _ = monster
         if mon.mname in ONLY_RANGED_SLOW_MONSTERS:
             continue
         if not adjacent((my, mx), (agent.blstats.y, agent.blstats.x)):
             continue
+        if mon.mname not in WEAK_MONSTERS:
+            adjacent_melee_threats += 1
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
@@ -223,6 +226,10 @@ def elbereth_action(agent, monsters):
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
         priority = -15 + 20 * adj_monsters_count * (1 - player_hp_ratio)
+        # hypothesis: making Elbereth decisive below 60% HP when multiple melee threats are adjacent
+        # prevents packs and were-creature summons from out-damaging one-at-a-time melee responses.
+        if adjacent_melee_threats >= 2 and player_hp_ratio < 0.6 ** 0.5:
+            priority = max(priority, 25)
         # hypothesis: making Elbereth beat melee for gnome Healers below 60% HP before XP 8 will turn their otherwise lethal early fights into recoverable ones.
         if agent.character.role == agent.character.HEALER and \
                 agent.character.race == agent.character.GNOME and \
