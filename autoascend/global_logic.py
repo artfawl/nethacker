@@ -162,6 +162,7 @@ class GlobalLogic:
         self.minetown_level = None
 
         self._got_artifact = False
+        self._leave_exhausted_first_level = None
 
     def update(self):
         if not self.agent.character.prop.hallu:
@@ -516,6 +517,7 @@ class GlobalLogic:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
                 condition = lambda: self.agent.blstats.experience_level >= 8 or \
+                    self.should_leave_exhausted_first_level() or \
                     self.should_abandon_stalled_first_level()
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
@@ -605,6 +607,18 @@ class GlobalLogic:
                 ])
                 .until(self.agent, condition)
             ).run()
+
+    def should_leave_exhausted_first_level(self):
+        if self.agent.blstats.experience_level < 7 or self.agent.blstats.time < 19000:
+            return False
+        if self._leave_exhausted_first_level is None:
+            # hypothesis: once a long level-1 farm reaches XP 7, a food-depleted character
+            # with both low max HP and poor armor gains more from fresh monsters downstairs.
+            self._leave_exhausted_first_level = \
+                self.agent.blstats.max_hitpoints <= 50 and \
+                self.agent.blstats.armor_class >= 0 and \
+                self.agent.inventory.items.total_nutrition() <= 40
+        return self._leave_exhausted_first_level
 
     def should_abandon_stalled_first_level(self):
         if self.milestone != Milestone.BE_ON_FIRST_LEVEL or \
