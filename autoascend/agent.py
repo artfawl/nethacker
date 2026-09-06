@@ -1420,10 +1420,11 @@ class Agent:
         #     self.cast('extra healing', direction=(0, 0))
         #     return
 
-        # if self.should_cast_heal():
-        #     yield True
-        #     self.cast('healing', direction=(0, 0))
-        #     return
+        # hypothesis: using renewable healing magic for human Healers will preserve their finite potions through the level-one farm without disrupting the gnome Healers' Elbereth defense.
+        if self.character.race == Character.HUMAN and self.should_cast_heal():
+            yield True
+            self.cast('healing', direction=(0, 0))
+            return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
@@ -1530,7 +1531,8 @@ class Agent:
                         ((Level.PLANE, 1), (None, None))  # TODO: check level num
                     self.character.parse()
                     self.character.parse_enhance_view()
-                    # self.character.parse_spellcast_view()
+                    if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
+                        self.character.parse_spellcast_view()
                     self.step(A.Command.AUTOPICKUP)
                     if 'Autopickup: ON' in self.message:
                         self.step(A.Command.AUTOPICKUP)
