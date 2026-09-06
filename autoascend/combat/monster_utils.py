@@ -8,19 +8,12 @@ WEIRD_MONSTERS = ['leprechaun', 'nymph']
 
 def is_monster_faster(agent, monster):
     _, y, x, mon, _ = monster
-    # TOOD: implement properly
-    return 'bat' in mon.mname or 'dog' in mon.mname or 'cat' in mon.mname \
-           or 'kitten' in mon.mname or 'pony' in mon.mname or 'horse' in mon.mname \
-           or 'bee' in mon.mname or 'fox' in mon.mname
+    # hypothesis: using actual movement speed lets emergency combat recognize fast threats such as
+    # soldier ants instead of trying to retreat based on an incomplete species-name list.
+    return mon.mmove > 12
 
 
 def imminent_death_on_melee(agent, monster):
-    # hypothesis: characters with at most 50 maximum HP need one extra point of
-    # buffer against a rothe's three-hit turn; tougher characters retain the
-    # less conservative cutoff so they do not over-kite a manageable fight.
-    if monster[3].mname == 'rothe':
-        safety_buffer = 26 if agent.blstats.max_hitpoints <= 50 else 25
-        return agent.blstats.hitpoints <= safety_buffer
     if is_dangerous_monster(monster):
         return agent.blstats.hitpoints <= 16
     return agent.blstats.hitpoints <= 8

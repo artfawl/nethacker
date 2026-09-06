@@ -595,8 +595,6 @@ class Agent:
             self._last_pet_seen = self.blstats.time
 
         level = self.current_level()
-        if 'cursing shoplifters' in self.message:
-            level.heard_shopkeeper = True
 
         mask = utils.isin(self.glyphs, G.FLOOR, G.STAIR_UP, G.STAIR_DOWN, G.DOOR_OPENED, G.TRAPS,
                           G.ALTAR, G.FOUNTAIN)
@@ -638,13 +636,6 @@ class Agent:
                 if (0 <= y < level.forbidden.shape[0] and 0 <= x < level.forbidden.shape[1]) \
                         and not level.walkable[y, x]:
                     level.forbidden[y, x] = True
-
-        if level.heard_shopkeeper and \
-                self.inventory.engraving_below_me.lower() == 'closed for inventory':
-            for y, x in self.neighbors(self.blstats.y, self.blstats.x,
-                                       shuffle=False, diagonal=False):
-                if self.glyphs[y, x] in G.DOOR_CLOSED:
-                    level.closed_shop_doors[y, x] = True
 
     ######## TRIVIAL HELPERS
 
@@ -1312,8 +1303,11 @@ class Agent:
             return False
 
         # corpse aging
-        if self.blstats.time - age_turn >= 50 and \
-                monster_id not in [MON.id_from_name('lizard'), MON.id_from_name('lichen')]:
+        corpse_age = self.blstats.time - age_turn
+        never_rots = monster_id in [MON.id_from_name('lizard'), MON.id_from_name('lichen')]
+        # hypothesis: skipping borderline-old, low-nutrition corpses avoids taint deaths without
+        # discarding substantial food that hunger-prone identities need to survive.
+        if not never_rots and (corpse_age >= 50 or (corpse_age >= 39 and permonst.cnutrit <= 50)):
             return False
 
         return True
@@ -1425,13 +1419,13 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
-                      self.blstats.hitpoints < 8)
-        if self.character.role == Character.PRIEST:
-            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
-                          self.blstats.hitpoints < 12)
-        if low_health and items:
+        if (
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
+                 or self.blstats.hitpoints < 8) and items
+        ):
             yield True
+            # hypothesis: at emergency HP, maximizing immediate healing is safer than consuming
+            # whichever known healing potion happens to occupy the earliest inventory slot.
             healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
             self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
             return
