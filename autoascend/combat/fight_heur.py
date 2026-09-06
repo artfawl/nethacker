@@ -4,9 +4,9 @@ from itertools import product
 import numpy as np
 from scipy import signal
 
-from ..glyph import Hunger, G, MON
+from ..glyph import G
 from ..utils import adjacent
-from .monster_utils import is_monster_faster, is_dangerous_monster, \
+from .monster_utils import is_monster_faster, is_dangerous_monster, imminent_death_on_melee, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
@@ -15,7 +15,8 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
     ret = 1
-    if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
+    rothe_is_imminent = mon.mname == 'rothe' and imminent_death_on_melee(agent, monster)
+    if (agent.blstats.hitpoints > 8 and not rothe_is_imminent) or is_monster_faster(agent, monster):
         ret += 15
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
         ret -= 6
@@ -87,17 +88,6 @@ def ranged_priority(agent, dy, dx, monsters):
             dis = line_dis_from(agent, y, x)
             if dis > agent.character.get_range(launcher, ammo):
                 return None
-            # hypothesis: when a foodless non-gnome is hungry, refusing to detonate
-            # a gas spore beside a young pet preserves alignment for a safe hunger prayer.
-            if mon.mname == 'gas spore' and \
-                    agent.character.race != agent.character.GNOME and \
-                    agent.blstats.hunger_state >= Hunger.HUNGRY and \
-                    agent.inventory.items.total_nutrition() == 0:
-                blast = agent.glyphs[max(0, y - 1):y + 2, max(0, x - 1):x + 2]
-                vulnerable_pets = {'kitten', 'little dog', 'pony'}
-                if any(glyph in G.PETS and MON.permonst(glyph).mname in vulnerable_pets
-                       for glyph in blast.flat):
-                    return None
             if dis in (1, 2):
                 ret -= 5
             if dis == 1:

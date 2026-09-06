@@ -15,6 +15,10 @@ def is_monster_faster(agent, monster):
 
 
 def imminent_death_on_melee(agent, monster):
+    # hypothesis: reserving 25 HP for a rothe's three-hit attack and honoring that
+    # buffer in melee scoring lets every role kite this slow, group-spawning killer.
+    if monster[3].mname == 'rothe':
+        return agent.blstats.hitpoints <= 25
     if is_dangerous_monster(monster):
         return agent.blstats.hitpoints <= 16
     return agent.blstats.hitpoints <= 8

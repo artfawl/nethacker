@@ -595,6 +595,8 @@ class Agent:
             self._last_pet_seen = self.blstats.time
 
         level = self.current_level()
+        if 'cursing shoplifters' in self.message:
+            level.heard_shopkeeper = True
 
         mask = utils.isin(self.glyphs, G.FLOOR, G.STAIR_UP, G.STAIR_DOWN, G.DOOR_OPENED, G.TRAPS,
                           G.ALTAR, G.FOUNTAIN)
@@ -636,6 +638,14 @@ class Agent:
                 if (0 <= y < level.forbidden.shape[0] and 0 <= x < level.forbidden.shape[1]) \
                         and not level.walkable[y, x]:
                     level.forbidden[y, x] = True
+
+        # hypothesis: combining prior shopkeeper sound with a "Closed for inventory" sign will identify and avoid the adjacent shop door before the bot kicks it down and turns a peaceful shopkeeper into a lethal enemy.
+        if level.heard_shopkeeper and \
+                self.inventory.engraving_below_me.lower() == 'closed for inventory':
+            for y, x in self.neighbors(self.blstats.y, self.blstats.x,
+                                       shuffle=False, diagonal=False):
+                if self.glyphs[y, x] in G.DOOR_CLOSED:
+                    level.closed_shop_doors[y, x] = True
 
     ######## TRIVIAL HELPERS
 
@@ -1136,18 +1146,7 @@ class Agent:
                 actions = list(filter(lambda x: x[1][0] != 'ranged', actions))
 
             if allow_attack_all:
-                passive_hazard_directions = {
-                    (my - self.blstats.y, mx - self.blstats.x)
-                    for _, my, mx, mon, _ in monsters
-                    if self.blstats.hunger_state < Hunger.WEAK and
-                    mon.mname in combat.monster_utils.ONLY_RANGED_SLOW_MONSTERS
-                }
-                # hypothesis: deferring forced melee against passive contact hazards until hunger is WEAK will prevent avoidable paralysis deaths without waiting to starve when a hazard truly blocks progress.
-                attack_actions = [
-                    action for action in actions
-                    if action[1][0] in ('melee', 'ranged', 'zap') and
-                    not (action[1][0] == 'melee' and tuple(action[1][1:3]) in passive_hazard_directions)
-                ]
+                attack_actions = [a for a in actions if a[1][0] in ('melee', 'ranged', 'zap')]
                 if attack_actions:
                     actions = attack_actions
 
@@ -1427,12 +1426,20 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
-        ):
+        # hypothesis: Priests survive multi-attack damage by using identified
+        # healing earlier; Healers keep the conservative threshold that preserves
+        # their larger starting potion supply for true emergencies.
+        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
+                      self.blstats.hitpoints < 8)
+        if self.character.role == Character.PRIEST:
+            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
+                          self.blstats.hitpoints < 12)
+        if low_health and items:
             yield True
-            self.inventory.quaff(items[0])
+            # hypothesis: drinking the strongest known healing potion at emergency HP prevents
+            # weak heals from losing the next damage race, especially for potion-rich Healers.
+            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
