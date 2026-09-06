@@ -6,9 +6,8 @@ from scipy import signal
 
 from ..glyph import G, MON
 from ..utils import adjacent
-from .monster_utils import is_monster_faster, is_dangerous_monster, \
-    imminent_death_on_melee, ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, \
-    consider_melee_only_ranged_if_hp_full
+from .monster_utils import is_monster_faster, is_dangerous_monster, imminent_death_on_melee, \
+    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -190,8 +189,12 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
         sleep_charges = None
         if item.uses and ':' in item.uses:
             sleep_charges = int(item.uses.rsplit(':', 1)[1])
-        is_sleep_wand = item.is_unambiguous() and item.is_ray_wand() and item.object.name == 'sleep' \
-                        and item.uses not in ('no charge', 'no charges') and sleep_charges != 0
+        is_sleep_wand = agent.character.role == agent.character.HEALER \
+                        and agent.character.race == agent.character.HUMAN \
+                        and item.is_unambiguous() and item.is_ray_wand() \
+                        and item.object.name == 'sleep' \
+                        and item.uses not in ('no charge', 'no charges') \
+                        and sleep_charges != 0
         if is_sleep_wand and (not sleep_threats or agent._last_turn - agent._last_sleep_wand_turn < 6):
             continue
         targeted_monsters = set()
@@ -213,7 +216,7 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
                 _, y, x, mon, _ = monster
                 if mon.mname in WEAK_MONSTERS:
                     priority += min(p, 1) * 1
-                elif is_dangerous_monster(agent, monster):
+                elif is_dangerous_monster(monster):
                     priority += p * 25
                 else:
                     priority += min(p, 1) * 10
@@ -255,7 +258,7 @@ def elbereth_action(agent, monsters):
             adj_monsters_count += 0.1 * multiplier
             continue
         adj_monsters_count += 1 * multiplier
-        if is_dangerous_monster(agent, monster):
+        if is_dangerous_monster(monster):
             adj_monsters_count += 2 * multiplier
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
