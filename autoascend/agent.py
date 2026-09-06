@@ -595,8 +595,6 @@ class Agent:
             self._last_pet_seen = self.blstats.time
 
         level = self.current_level()
-        if 'cursing shoplifters' in self.message:
-            level.heard_shopkeeper = True
 
         mask = utils.isin(self.glyphs, G.FLOOR, G.STAIR_UP, G.STAIR_DOWN, G.DOOR_OPENED, G.TRAPS,
                           G.ALTAR, G.FOUNTAIN)
@@ -638,13 +636,6 @@ class Agent:
                 if (0 <= y < level.forbidden.shape[0] and 0 <= x < level.forbidden.shape[1]) \
                         and not level.walkable[y, x]:
                     level.forbidden[y, x] = True
-
-        if level.heard_shopkeeper and \
-                self.inventory.engraving_below_me.lower() == 'closed for inventory':
-            for y, x in self.neighbors(self.blstats.y, self.blstats.x,
-                                       shuffle=False, diagonal=False):
-                if self.glyphs[y, x] in G.DOOR_CLOSED:
-                    level.closed_shop_doors[y, x] = True
 
     ######## TRIVIAL HELPERS
 
@@ -1425,15 +1416,20 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
-                      self.blstats.hitpoints < 8)
-        if self.character.role == Character.PRIEST:
-            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
-                          self.blstats.hitpoints < 12)
-        if low_health and items:
+        # hypothesis: giving Healers a complete emergency-resource policy—strongest known healing
+        # for vulnerable humans and safe prayer at fainting—prevents their early resource deaths
+        # without changing any Priest trajectory.
+        if (
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
+                 or self.blstats.hitpoints < 8) and items
+        ):
             yield True
-            healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
-            self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
+            if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
+                healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
+                item = max(items, key=lambda candidate: healing_power[candidate.object.name])
+            else:
+                item = items[0]
+            self.inventory.quaff(item)
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
@@ -1447,7 +1443,12 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
+                # hypothesis: Priests should pray as soon as hunger becomes WEAK, avoiding a fatal
+                # faint while leaving the Healers' stronger existing resource loop undisturbed.
+                or (self.character.role == Character.PRIEST and self.is_safe_to_pray(400)
+                    and self.blstats.hunger_state >= Hunger.WEAK)
+                or (self.character.role == Character.HEALER and self.is_safe_to_pray(400)
+                    and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
             yield True
             self.pray()

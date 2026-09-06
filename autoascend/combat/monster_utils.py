@@ -15,31 +15,19 @@ def is_monster_faster(agent, monster):
 
 
 def imminent_death_on_melee(agent, monster):
-    # hypothesis: characters with at most 50 maximum HP need one extra point of
-    # buffer against a rothe's three-hit turn; tougher characters retain the
-    # less conservative cutoff so they do not over-kite a manageable fight.
-    if monster[3].mname == 'rothe':
-        safety_buffer = 26 if agent.blstats.max_hitpoints <= 50 else 25
-        return agent.blstats.hitpoints <= safety_buffer
-    if is_dangerous_monster(monster, agent):
+    if is_dangerous_monster(monster):
         return agent.blstats.hitpoints <= 16
     return agent.blstats.hitpoints <= 8
 
 
-def is_dangerous_monster(monster, agent=None):
+def is_dangerous_monster(monster):
     _, y, x, mon, _ = monster
     is_pet = 'dog' in mon.mname or 'cat' in mon.mname or 'kitten' in mon.mname or 'pony' in mon.mname \
              or 'horse' in mon.mname
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
-    # hypothesis: treating summoning, infecting werecreatures as dangerous for
-    # frail gnome Healers makes them retreat or engrave before a pack traps them.
-    vulnerable_to_werecreatures = agent is not None and \
-        agent.character.role == agent.character.HEALER and \
-        agent.character.race == agent.character.GNOME
-    return is_pet or mon.mname in INSECTS or \
-        (vulnerable_to_werecreatures and 'were' in mon.mname)
+    return is_pet or mon.mname in INSECTS
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):
