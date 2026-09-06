@@ -405,8 +405,6 @@ class GlobalLogic:
             return False
 
         permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
-        # hypothesis: refusing ambiguous domestic corpses at low XL prevents the bot from
-        # repeatedly sacrificing its dead starting pet and provoking an unsurvivable divine minion.
         if self.agent.blstats.experience_level < 3 and permonst.mflags2 & MON.M2_DOMESTIC:
             return False
 

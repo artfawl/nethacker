@@ -639,7 +639,6 @@ class Agent:
                         and not level.walkable[y, x]:
                     level.forbidden[y, x] = True
 
-        # hypothesis: combining prior shopkeeper sound with a "Closed for inventory" sign will identify and avoid the adjacent shop door before the bot kicks it down and turns a peaceful shopkeeper into a lethal enemy.
         if level.heard_shopkeeper and \
                 self.inventory.engraving_below_me.lower() == 'closed for inventory':
             for y, x in self.neighbors(self.blstats.y, self.blstats.x,
@@ -1426,9 +1425,6 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        # hypothesis: Priests survive multi-attack damage by using identified
-        # healing earlier; Healers keep the conservative threshold that preserves
-        # their larger starting potion supply for true emergencies.
         low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
                       self.blstats.hitpoints < 8)
         if self.character.role == Character.PRIEST:
@@ -1436,8 +1432,6 @@ class Agent:
                           self.blstats.hitpoints < 12)
         if low_health and items:
             yield True
-            # hypothesis: drinking the strongest known healing potion at emergency HP prevents
-            # weak heals from losing the next damage race, especially for potion-rich Healers.
             healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
             self.inventory.quaff(max(items, key=lambda item: healing_power[item.object.name]))
             return
