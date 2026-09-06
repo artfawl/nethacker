@@ -1127,8 +1127,7 @@ class Agent:
                 yielded = True
                 yield True
                 self.character.parse_enhance_view()
-                if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                    self.character.parse_spellcast_view()
+                # self.character.parse_spellcast_view()
 
             move_priority_heatmap, actions = combat.fight_heur.get_priorities(self)
             actions.extend(combat.fight_heur.get_move_actions(self, dis, move_priority_heatmap))
@@ -1137,7 +1136,18 @@ class Agent:
                 actions = list(filter(lambda x: x[1][0] != 'ranged', actions))
 
             if allow_attack_all:
-                attack_actions = [a for a in actions if a[1][0] in ('melee', 'ranged', 'zap')]
+                passive_hazard_directions = {
+                    (my - self.blstats.y, mx - self.blstats.x)
+                    for _, my, mx, mon, _ in monsters
+                    if self.blstats.hunger_state < Hunger.WEAK and
+                    mon.mname in combat.monster_utils.ONLY_RANGED_SLOW_MONSTERS
+                }
+                # hypothesis: deferring forced melee against passive contact hazards until hunger is WEAK will prevent avoidable paralysis deaths without waiting to starve when a hazard truly blocks progress.
+                attack_actions = [
+                    action for action in actions
+                    if action[1][0] in ('melee', 'ranged', 'zap') and
+                    not (action[1][0] == 'melee' and tuple(action[1][1:3]) in passive_hazard_directions)
+                ]
                 if attack_actions:
                     actions = attack_actions
 
@@ -1410,11 +1420,10 @@ class Agent:
         #     self.cast('extra healing', direction=(0, 0))
         #     return
 
-        # hypothesis: combining the retained gnome-Healer Elbereth defense with human-only healing-spell use will lift the weakest human Healers without perturbing the stronger gnome policy.
-        if self.character.race == Character.HUMAN and self.should_cast_heal():
-            yield True
-            self.cast('healing', direction=(0, 0))
-            return
+        # if self.should_cast_heal():
+        #     yield True
+        #     self.cast('healing', direction=(0, 0))
+        #     return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
@@ -1521,8 +1530,7 @@ class Agent:
                         ((Level.PLANE, 1), (None, None))  # TODO: check level num
                     self.character.parse()
                     self.character.parse_enhance_view()
-                    if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                        self.character.parse_spellcast_view()
+                    # self.character.parse_spellcast_view()
                     self.step(A.Command.AUTOPICKUP)
                     if 'Autopickup: ON' in self.message:
                         self.step(A.Command.AUTOPICKUP)

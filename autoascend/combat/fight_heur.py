@@ -4,7 +4,7 @@ from itertools import product
 import numpy as np
 from scipy import signal
 
-from ..glyph import G
+from ..glyph import Hunger, G, MON
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
@@ -87,6 +87,17 @@ def ranged_priority(agent, dy, dx, monsters):
             dis = line_dis_from(agent, y, x)
             if dis > agent.character.get_range(launcher, ammo):
                 return None
+            # hypothesis: when a foodless non-gnome is hungry, refusing to detonate
+            # a gas spore beside a young pet preserves alignment for a safe hunger prayer.
+            if mon.mname == 'gas spore' and \
+                    agent.character.race != agent.character.GNOME and \
+                    agent.blstats.hunger_state >= Hunger.HUNGRY and \
+                    agent.inventory.items.total_nutrition() == 0:
+                blast = agent.glyphs[max(0, y - 1):y + 2, max(0, x - 1):x + 2]
+                vulnerable_pets = {'kitten', 'little dog', 'pony'}
+                if any(glyph in G.PETS and MON.permonst(glyph).mname in vulnerable_pets
+                       for glyph in blast.flat):
+                    return None
             if dis in (1, 2):
                 ret -= 5
             if dis == 1:
