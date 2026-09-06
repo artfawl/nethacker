@@ -162,9 +162,17 @@ class GlobalLogic:
         self.minetown_level = None
 
         self._got_artifact = False
+        self._pet_species = set()
 
     def update(self):
         if not self.agent.character.prop.hallu:
+            # hypothesis: remembering species actually observed as pets and refusing their
+            # corpses prevents pet-sacrifice punishment without rejecting unrelated corpses.
+            pet_mask = utils.isin(self.agent.glyphs, G.PETS)
+            self._pet_species.update(
+                int(glyph) - nh.GLYPH_PET_OFF for glyph in self.agent.glyphs[pet_mask]
+            )
+
             if utils.isin(self.agent.glyphs, G.ORACLE).any():
                 if self.oracle_level is None:
                     self.oracle_level = self.agent.current_level().key()
@@ -404,11 +412,7 @@ class GlobalLogic:
         if not item.is_corpse() or item.comment == 'old':
             return False
 
-        mname = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF).mname
-        if (mname == 'pony' and self.agent.character.role in [Character.KNIGHT, Character.BARBARIAN]) or \
-                (mname == 'kitten' and self.agent.character.role == [Character.BARBARIAN, Character.WIZARD]) or \
-                (mname == 'little dog' and item.naming):  # little dogs are always named
-            # sufficient condition for being an initial pet
+        if item.monster_id in self._pet_species:
             return False
 
         if self.agent.character.alignment != Character.CHAOTIC:

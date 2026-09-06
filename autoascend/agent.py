@@ -78,9 +78,7 @@ class Agent:
 
         self.last_cast_fail_turn = defaultdict(lambda: -float('inf'))
 
-        # hypothesis: coordinating Healers' emergency reserves--a safe hunger prayer for
-        # both races, plus the human Healer's sleep wand and strongest known cure--will
-        # turn lethal level-one resource hoarding into survival without perturbing Priests.
+        # Healer emergency-reserve policy retained from reference attempt 7.
         self._last_sleep_wand_turn = -float('inf')
 
         self.stats_logger = StatsLogger()
