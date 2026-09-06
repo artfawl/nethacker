@@ -515,7 +515,8 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                condition = lambda: self.agent.blstats.experience_level >= 8
+                condition = lambda: self.agent.blstats.experience_level >= 8 or \
+                    self.should_abandon_stalled_first_level()
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
@@ -604,6 +605,24 @@ class GlobalLogic:
                 ])
                 .until(self.agent, condition)
             ).run()
+
+    def should_abandon_stalled_first_level(self):
+        if self.milestone != Milestone.BE_ON_FIRST_LEVEL or \
+                self.agent.character.role != Character.PRIEST or \
+                self.agent.character.race != Character.ELF or \
+                self.agent.blstats.experience_level >= 2 or \
+                self.agent.blstats.hunger_state < Hunger.WEAK:
+            return False
+        level = self.agent.current_level()
+        walkable_count = level.walkable.sum()
+        return walkable_count > 0 and level.was_on.sum() * 10 >= walkable_count * 7
+
+    def is_abandoning_stalled_first_level(self):
+        return self.agent.character.role == Character.PRIEST and \
+            self.agent.character.race == Character.ELF and \
+            self.agent.blstats.experience_level < 2 and \
+            (self.milestone != Milestone.BE_ON_FIRST_LEVEL or
+             self.should_abandon_stalled_first_level())
 
     def global_strategy(self):
         return (

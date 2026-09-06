@@ -189,14 +189,13 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
         sleep_charges = None
         if item.uses and ':' in item.uses:
             sleep_charges = int(item.uses.rsplit(':', 1)[1])
-        is_sleep_wand = agent.character.role == agent.character.HEALER \
-                        and agent.character.race == agent.character.HUMAN \
-                        and item.is_unambiguous() and item.is_ray_wand() \
-                        and item.object.name == 'sleep' \
-                        and item.uses not in ('no charge', 'no charges') \
-                        and sleep_charges != 0
-        if is_sleep_wand and (not sleep_threats or agent._last_turn - agent._last_sleep_wand_turn < 6):
-            continue
+        is_sleep_wand = item.is_unambiguous() and item.is_ray_wand() and item.object.name == 'sleep' \
+                        and item.uses not in ('no charge', 'no charges') and sleep_charges != 0
+        if is_sleep_wand:
+            # hypothesis: human Healers survive burst-damage fights by spending charged sleep rays and
+            # their strongest safe cure as a coordinated panic kit instead of dying with either resource unused.
+            if not sleep_threats or agent._last_turn - agent._last_sleep_wand_turn < 6:
+                continue
         targeted_monsters = set()
         if not is_sleep_wand and not item.is_offensive_usable_wand():
             continue

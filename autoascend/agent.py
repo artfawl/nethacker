@@ -1420,12 +1420,11 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         human_healer = self.character.role == Character.HEALER and \
-            self.character.race == Character.HUMAN
+                       self.character.race == Character.HUMAN
         elf_priest = self.character.role == Character.PRIEST and \
-            self.character.race == Character.ELF
-        # hypothesis: fragile casters survive longer when their panic policy matches their reliable
-        # resource: human Healers spend their guaranteed cure/sleep kit, while Elf Priests pray
-        # earlier and conserve scarce healing potions; other identities keep their proven policy.
+                     self.character.race == Character.ELF
+        # hypothesis: a hungry Elf Priest should reserve healing potions and pray early while the
+        # XP farm is productive, but descend when still XP 1 after visiting most of the floor.
         low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
                       self.blstats.hitpoints < 8)
         if self.character.role == Character.PRIEST and not elf_priest:
@@ -1453,7 +1452,9 @@ class Agent:
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
                 or (self.is_safe_to_pray(400) and
-                    self.blstats.hunger_state >= (Hunger.WEAK if elf_priest else Hunger.FAINTING))
+                    (self.blstats.hunger_state >= Hunger.FAINTING or
+                     (elf_priest and self.blstats.hunger_state >= Hunger.WEAK and
+                      not self.global_logic.is_abandoning_stalled_first_level())))
         ):
             yield True
             self.pray()
