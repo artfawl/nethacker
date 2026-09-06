@@ -404,11 +404,8 @@ class GlobalLogic:
         if not item.is_corpse() or item.comment == 'old':
             return False
 
-        mname = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF).mname
-        if (mname == 'pony' and self.agent.character.role in [Character.KNIGHT, Character.BARBARIAN]) or \
-                (mname == 'kitten' and self.agent.character.role == [Character.BARBARIAN, Character.WIZARD]) or \
-                (mname == 'little dog' and item.naming):  # little dogs are always named
-            # sufficient condition for being an initial pet
+        permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
+        if self.agent.blstats.experience_level < 3 and permonst.mflags2 & MON.M2_DOMESTIC:
             return False
 
         if self.agent.character.alignment != Character.CHAOTIC:
@@ -515,16 +512,7 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: Healers gain more progression by leaving the depleted level-1 farm at
-                # XP 7, while melee-stronger Priests retain the safer and productive XP-8 threshold.
-                condition = lambda: (
-                    self.agent.blstats.experience_level >= 8 or
-                    (self.agent.character.role == Character.HEALER and
-                     self.agent.blstats.experience_level >= 7) or
-                    (self.agent.blstats.experience_level >= 6 and
-                     self.agent.blstats.hunger_state >= Hunger.HUNGRY and
-                     self.agent.inventory.items.total_nutrition() == 0)
-                )
+                condition = lambda: self.agent.blstats.experience_level >= 8
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)

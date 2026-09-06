@@ -6,7 +6,7 @@ from scipy import signal
 
 from ..glyph import G
 from ..utils import adjacent
-from .monster_utils import is_monster_faster, is_dangerous_monster, \
+from .monster_utils import is_monster_faster, is_dangerous_monster, imminent_death_on_melee, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
@@ -15,7 +15,8 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
     ret = 1
-    if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
+    rothe_is_imminent = mon.mname == 'rothe' and imminent_death_on_melee(agent, monster)
+    if (agent.blstats.hitpoints > 8 and not rothe_is_imminent) or is_monster_faster(agent, monster):
         ret += 15
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
         ret -= 6
@@ -184,7 +185,7 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
                 _, y, x, mon, _ = monster
                 if mon.mname in WEAK_MONSTERS:
                     priority += min(p, 1) * 1
-                elif is_dangerous_monster(monster):
+                elif is_dangerous_monster(monster, agent):
                     priority += p * 25
                 else:
                     priority += min(p, 1) * 10
@@ -203,41 +204,32 @@ def elbereth_action(agent, monsters):
         return []
     if not agent.can_engrave():
         return []
-    adjacent_monsters = [
-        monster for monster in monsters
-        if monster[3].mname not in ONLY_RANGED_SLOW_MONSTERS and
-        adjacent((monster[1], monster[2]), (agent.blstats.y, agent.blstats.x))
-    ]
-    has_nonweak_adjacent_monster = any(
-        monster[3].mname not in WEAK_MONSTERS for monster in adjacent_monsters
-    )
-    has_weak_adjacent_monster = any(
-        monster[3].mname in WEAK_MONSTERS for monster in adjacent_monsters
-    )
-    combat_ready = False
-    if has_nonweak_adjacent_monster and has_weak_adjacent_monster:
-        _, melee_dps = agent.inventory.get_best_melee_weapon(return_dps=True)
-        combat_ready = agent.blstats.armor_class <= 6 or melee_dps >= 1
     adj_monsters_count = 0
-    for monster in adjacent_monsters:
+    for monster in monsters:
         _, my, mx, mon, _ = monster
+        if mon.mname in ONLY_RANGED_SLOW_MONSTERS:
+            continue
+        if not adjacent((my, mx), (agent.blstats.y, agent.blstats.x)):
+            continue
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
-        # hypothesis: combat-ready characters should discount weak bystanders beside a real attacker,
-        # avoiding needless Elbereth use without exposing poorly armed and armored characters.
-        if mon.mname in WEAK_MONSTERS and has_nonweak_adjacent_monster and combat_ready:
+        if mon in WEAK_MONSTERS:
             adj_monsters_count += 0.1 * multiplier
             continue
         adj_monsters_count += 1 * multiplier
-        if is_dangerous_monster(monster):
+        if is_dangerous_monster(monster, agent):
             adj_monsters_count += 2 * multiplier
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
-        # hypothesis: making Elbereth competitive with a desperate melee swing lets low-HP characters
-        # survive cornered fights while preserving the existing preference to retreat when space exists.
-        return [(-5 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
+        priority = -15 + 20 * adj_monsters_count * (1 - player_hp_ratio)
+        # hypothesis: making Elbereth beat melee for gnome Healers below 60% HP before XP 8 will turn their otherwise lethal early fights into recoverable ones.
+        if agent.character.role == agent.character.HEALER and \
+                agent.character.race == agent.character.GNOME and \
+                agent.blstats.experience_level < 8 and player_hp_ratio < 0.6 ** 0.5:
+            priority = max(priority, 25)
+        return [(priority, ('elbereth',))]
     return []
 
 
