@@ -1423,8 +1423,8 @@ class Agent:
                        self.character.race == Character.HUMAN
         elf_priest = self.character.role == Character.PRIEST and \
                      self.character.race == Character.ELF
-        # hypothesis: matching fragile characters' level-one survival policy to their reliable
-        # emergency resources lets them finish the XP farm instead of dying with those resources unused.
+        # hypothesis: a hungry Elf Priest should reserve healing potions and pray early while the
+        # XP farm is productive, but descend when still XP 1 after visiting most of the floor.
         low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
                       self.blstats.hitpoints < 8)
         if self.character.role == Character.PRIEST and not elf_priest:
@@ -1446,6 +1446,23 @@ class Agent:
             yield True
             self.inventory.quaff(items[0])
             return
+
+        # hypothesis: an established but still fragile human Priest with no ordinary food should
+        # spend reserved wolfsbane at FAINTING, preserving prayer for stronger threats; Elf Priests
+        # keep their existing early-hunger prayer policy.
+        if self.blstats.hunger_state >= Hunger.FAINTING and \
+                self.character.role == Character.PRIEST and self.character.race == Character.HUMAN and \
+                self.blstats.experience_level >= 3 and self.blstats.max_hitpoints <= 25:
+            food_items = [item for item in flatten_items(self.inventory.items)
+                          if item.is_unambiguous() and item.category == nh.FOOD_CLASS]
+            sprigs = [item for item in food_items if item.object.name == 'sprig of wolfsbane']
+            ordinary_food = [item for item in food_items if item.object.name != 'sprig of wolfsbane' and
+                             (not item.is_corpse() or item.monster_id in [
+                                 MON.from_name(n) - nh.GLYPH_MON_OFF for n in ['lizard', 'lichen']])]
+            if sprigs and not ordinary_food:
+                yield True
+                self.inventory.eat(sprigs[0])
+                return
 
         if (
                 (self.is_safe_to_pray(500) and
