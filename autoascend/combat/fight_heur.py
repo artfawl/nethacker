@@ -202,6 +202,8 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
         priority = 0
         sleep_targets_hit = set()
         sleep_collateral = 0
+        peaceful_collateral = False
+        vulnerable_rothe_targeted = False
         # print('--------------', dy, dx)
         for y, x, monster, p in simulate_wand_path(agent, item, monsters, dy, dx):
             # print(y, x, monster, p)
@@ -215,8 +217,13 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
                 _, y, x, mon, _ = monster
                 if mon.mname in WEAK_MONSTERS:
                     priority += min(p, 1) * 1
-                elif is_dangerous_monster(monster):
+                # hypothesis: poorly armored characters should spend a clear offensive ray on a
+                # rothe's three-attack burst, while well-armored characters preserve the ray and
+                # every character avoids angering peaceful monsters farther along its path.
+                elif is_dangerous_monster(monster) or \
+                        (mon.mname == 'rothe' and agent.blstats.armor_class >= 0):
                     priority += p * 25
+                    vulnerable_rothe_targeted |= mon.mname == 'rothe'
                 else:
                     priority += min(p, 1) * 10
                 targeted_monsters.add((y, x, monster))
@@ -224,12 +231,14 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
                     sleep_targets_hit.add((y, x))
             if is_sleep_wand and agent.monster_tracker.peaceful_monster_mask[y, x]:
                 sleep_collateral += p
+            if inside(agent, y, x) and agent.monster_tracker.peaceful_monster_mask[y, x]:
+                peaceful_collateral = True
         if is_sleep_wand:
             if sleep_targets_hit:
                 priority = 24 + 8 * (len(sleep_targets_hit) - 1) - 40 * sleep_collateral
                 ret.append((priority, ('zap', dy, dx, item, targeted_monsters)))
             continue
-        if targeted_monsters:
+        if targeted_monsters and not (vulnerable_rothe_targeted and peaceful_collateral):
             # priority = priority * (1 - player_hp_ratio) - 10
             priority = priority - 15
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
