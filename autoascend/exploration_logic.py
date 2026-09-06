@@ -269,7 +269,8 @@ class ExplorationLogic:
             yielded = False
             for py, px in self.agent.neighbors(self.agent.blstats.y, self.agent.blstats.x, diagonal=False):
                 if (self.agent.current_level().door_open_count[py, px] < door_open_count or kick_doors) and \
-                        self.agent.glyphs[py, px] in G.DOOR_CLOSED:
+                        self.agent.glyphs[py, px] in G.DOOR_CLOSED and \
+                        not self.agent.current_level().closed_shop_doors[py, px]:
                     if not yielded:
                         yielded = True
                         yield True
@@ -296,7 +297,8 @@ class ExplorationLogic:
             level = self.agent.current_level()
 
             stone = ~level.seen & utils.isin(self.agent.glyphs, G.STONE)
-            doors = utils.isin(self.agent.glyphs, G.DOOR_CLOSED) & (level.door_open_count < door_open_count)
+            doors = utils.isin(self.agent.glyphs, G.DOOR_CLOSED) & \
+                    (level.door_open_count < door_open_count) & ~level.closed_shop_doors
             if not stone.any() and not doors.any():
                 return stone
 
