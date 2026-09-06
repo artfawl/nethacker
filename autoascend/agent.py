@@ -1136,18 +1136,7 @@ class Agent:
                 actions = list(filter(lambda x: x[1][0] != 'ranged', actions))
 
             if allow_attack_all:
-                passive_hazard_directions = {
-                    (my - self.blstats.y, mx - self.blstats.x)
-                    for _, my, mx, mon, _ in monsters
-                    if self.blstats.hunger_state < Hunger.WEAK and
-                    mon.mname in combat.monster_utils.ONLY_RANGED_SLOW_MONSTERS
-                }
-                # hypothesis: deferring forced melee against passive contact hazards until hunger is WEAK will prevent avoidable paralysis deaths without waiting to starve when a hazard truly blocks progress.
-                attack_actions = [
-                    action for action in actions
-                    if action[1][0] in ('melee', 'ranged', 'zap') and
-                    not (action[1][0] == 'melee' and tuple(action[1][1:3]) in passive_hazard_directions)
-                ]
+                attack_actions = [a for a in actions if a[1][0] in ('melee', 'ranged', 'zap')]
                 if attack_actions:
                     actions = attack_actions
 
@@ -1420,11 +1409,10 @@ class Agent:
         #     self.cast('extra healing', direction=(0, 0))
         #     return
 
-        # hypothesis: using renewable healing magic for human Healers will preserve their finite potions through the level-one farm without disrupting the gnome Healers' Elbereth defense.
-        if self.character.race == Character.HUMAN and self.should_cast_heal():
-            yield True
-            self.cast('healing', direction=(0, 0))
-            return
+        # if self.should_cast_heal():
+        #     yield True
+        #     self.cast('healing', direction=(0, 0))
+        #     return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
@@ -1447,7 +1435,10 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
+                # hypothesis: Priests should pray as soon as hunger becomes WEAK, avoiding a fatal
+                # faint while leaving the Healers' stronger existing resource loop undisturbed.
+                or (self.character.role == Character.PRIEST and self.is_safe_to_pray(400)
+                    and self.blstats.hunger_state >= Hunger.WEAK)
         ):
             yield True
             self.pray()
@@ -1531,8 +1522,7 @@ class Agent:
                         ((Level.PLANE, 1), (None, None))  # TODO: check level num
                     self.character.parse()
                     self.character.parse_enhance_view()
-                    if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                        self.character.parse_spellcast_view()
+                    # self.character.parse_spellcast_view()
                     self.step(A.Command.AUTOPICKUP)
                     if 'Autopickup: ON' in self.message:
                         self.step(A.Command.AUTOPICKUP)
