@@ -1421,10 +1421,12 @@ class Agent:
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         human_healer = self.character.role == Character.HEALER and \
                        self.character.race == Character.HUMAN
-        if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
-        ):
+        low_health = (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
+                      self.blstats.hitpoints < 8)
+        if self.character.role == Character.PRIEST:
+            low_health = (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints or
+                          self.blstats.hitpoints < 12)
+        if low_health and items:
             yield True
             if human_healer:
                 healing_power = {'healing': 1, 'extra healing': 2, 'full healing': 3}
@@ -1445,12 +1447,7 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                # hypothesis: Priests should pray as soon as hunger becomes WEAK, avoiding a fatal
-                # faint while leaving the Healers' stronger existing resource loop undisturbed.
-                or (self.character.role == Character.PRIEST and self.is_safe_to_pray(400)
-                    and self.blstats.hunger_state >= Hunger.WEAK)
-                or (human_healer and self.is_safe_to_pray(400)
-                    and self.blstats.hunger_state >= Hunger.FAINTING)
+                or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
             yield True
             self.pray()
