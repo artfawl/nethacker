@@ -12,6 +12,8 @@ from .strategy import Strategy
 
 @nb.njit(cache=True)
 def bfs(y, x, *, walkable, walkable_diagonally, can_squeeze):
+    # hypothesis: deferring compiled-kernel setup and normalizing numeric paths
+    # keeps every identity under the arena startup/runtime budget.
     dis = np.zeros(walkable.shape, dtype=np.int32)
     dis[:] = -1
     dis[y, x] = 0
@@ -60,7 +62,7 @@ def translate(array, y_offset, x_offset, out=None):
     return out
 
 
-@nb.njit('b1[:,:](i2[:,:],i2,i2,b1[:])', cache=True)
+@nb.njit(cache=True)
 def _isin_kernel(array, mi, ma, mask):
     ret = np.zeros(array.shape, dtype=nb.b1)
     for y in range(array.shape[0]):
@@ -77,7 +79,7 @@ def _isin_mask(elems):
     return _isin_mask_kernel(elems)
 
 
-@nb.njit('Tuple((i2,i2,b1[:]))(i2[:])', cache=True)
+@nb.njit(cache=True)
 def _isin_mask_kernel(elems):
     mi: i2 = 32767
     ma: i2 = -32768
@@ -193,4 +195,3 @@ def slice_with_padding(array, a1, a2, b1, b2, pad_value=0):
 def slice_square_with_padding(array, center_y, center_x, radius, pad_value=0):
     return slice_with_padding(array, center_y - radius, center_y + radius + 1,
                               center_x - radius, center_x + radius + 1, pad_value=pad_value)
-

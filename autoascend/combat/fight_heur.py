@@ -2,7 +2,7 @@ from collections import defaultdict
 from itertools import product
 
 import numpy as np
-from scipy import signal
+import cv2
 
 from ..glyph import G
 from ..utils import adjacent
@@ -222,13 +222,7 @@ def elbereth_action(agent, monsters):
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
-        priority = -15 + 20 * adj_monsters_count * (1 - player_hp_ratio)
-        # hypothesis: making Elbereth beat melee for gnome Healers below 60% HP before XP 8 will turn their otherwise lethal early fights into recoverable ones.
-        if agent.character.role == agent.character.HEALER and \
-                agent.character.race == agent.character.GNOME and \
-                agent.blstats.experience_level < 8 and player_hp_ratio < 0.6 ** 0.5:
-            priority = max(priority, 25)
-        return [(priority, ('elbereth',))]
+        return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
     return []
 
 
@@ -311,11 +305,13 @@ def goto_action(agent, priority, monsters):
 
 
 def get_corridors_priority_map(walkable):
-    k = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
-    wall_count = signal.convolve2d((~walkable).astype(int), k, boundary='symm', mode='same')
+    k = np.ones((3, 3), dtype=np.float32)
+    wall_count = cv2.filter2D((~walkable).astype(np.float32), cv2.CV_32F, k,
+                              borderType=cv2.BORDER_REFLECT)
     corridor_mask = (wall_count == 6).astype(int)
     corridor_mask[~walkable] = 0
-    corridor_dilated = signal.convolve2d(corridor_mask.astype(int), k, boundary='symm', mode='same')
+    corridor_dilated = cv2.filter2D(corridor_mask.astype(np.float32), cv2.CV_32F, k,
+                                    borderType=cv2.BORDER_REFLECT)
     return corridor_mask + corridor_dilated >= 1
 
 
