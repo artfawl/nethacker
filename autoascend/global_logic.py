@@ -24,10 +24,11 @@ class ItemPriority(ItemPriorityBase):
         self._drop_gold_till_turn = -float('inf')
 
     def _split(self, items, forced_items, weight_capacity):
-        remaining_weight = weight_capacity
+        # Normalize NLE numeric scalars before inventory arithmetic.
+        remaining_weight = float(weight_capacity)
         ret_inv = {}
         for item in forced_items:
-            remaining_weight -= item.weight()
+            remaining_weight -= float(item.weight())
             ret_inv[item] = item.count
 
         ret_bag = {}
@@ -47,11 +48,12 @@ class ItemPriority(ItemPriorityBase):
 
             how_many_already_total = ret_inv.get(item, 0) + ret_bag.get(item, 0)
             how_many_already = ret.get(item, 0)
-            max_to_add = int(remaining_weight // item.unit_weight(with_content=False))
+            unit_weight = float(item.unit_weight(with_content=False))
+            max_to_add = int(remaining_weight // unit_weight)
             if count is not None:
                 max_to_add = min(max_to_add, count)
             ret[item] = min(item.count, how_many_already_total + max_to_add) - (how_many_already_total - how_many_already)
-            remaining_weight -= item.unit_weight(with_content=False) * (ret[item] - how_many_already)
+            remaining_weight -= unit_weight * (ret[item] - how_many_already)
 
         for item in items:
             if item.is_container() and item.status in [Item.UNCURSED, Item.BLESSED] and item.objs[0].desc == 'bag':

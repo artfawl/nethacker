@@ -4,7 +4,6 @@ from collections import namedtuple, Counter, defaultdict
 from functools import partial
 
 import nle.nethack as nh
-import nltk
 import numpy as np
 from nle.nethack import actions as A
 
@@ -24,6 +23,23 @@ from .strategy import Strategy
 
 BLStats = namedtuple('BLStats',
                      'x y strength_percentage strength dexterity constitution intelligence wisdom charisma score hitpoints max_hitpoints depth gold energy max_energy armor_class monster_level experience_level experience_points time hunger_state carrying_capacity dungeon_number level_number prop_mask alignment')
+
+
+def _edit_distance(first, second):
+    """Return Levenshtein distance without importing a heavyweight NLP package."""
+    if len(first) < len(second):
+        first, second = second, first
+    previous = list(range(len(second) + 1))
+    for first_index, first_char in enumerate(first, 1):
+        current = [first_index]
+        for second_index, second_char in enumerate(second, 1):
+            current.append(min(
+                current[-1] + 1,
+                previous[second_index] + 1,
+                previous[second_index - 1] + (first_char != second_char),
+            ))
+        previous = current
+    return previous[-1]
 
 
 class Agent:
@@ -628,8 +644,8 @@ class Agent:
                 level.walkable[y, x] = False  # necessary for the exit route from vaults
 
         # ad aerarium -- avoid valut entrance
-        if self.inventory.engraving_below_me and nltk.edit_distance(self.inventory.engraving_below_me,
-                                                                    "ad aerarium") <= 6:
+        if self.inventory.engraving_below_me and _edit_distance(self.inventory.engraving_below_me,
+                                                                "ad aerarium") <= 6:
             self.stats_logger.log_event('ad_aerarium_below_me')
             for dy, dx in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                 y, x = self.blstats.y + dy, self.blstats.x + dx
@@ -1127,8 +1143,7 @@ class Agent:
                 yielded = True
                 yield True
                 self.character.parse_enhance_view()
-                if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                    self.character.parse_spellcast_view()
+                # self.character.parse_spellcast_view()
 
             move_priority_heatmap, actions = combat.fight_heur.get_priorities(self)
             actions.extend(combat.fight_heur.get_move_actions(self, dis, move_priority_heatmap))
@@ -1410,17 +1425,19 @@ class Agent:
         #     self.cast('extra healing', direction=(0, 0))
         #     return
 
-        # hypothesis: combining the retained gnome-Healer Elbereth defense with human-only healing-spell use will lift the weakest human Healers without perturbing the stronger gnome policy.
-        if self.character.race == Character.HUMAN and self.should_cast_heal():
-            yield True
-            self.cast('healing', direction=(0, 0))
-            return
+        # if self.should_cast_heal():
+        #     yield True
+        #     self.cast('healing', direction=(0, 0))
+        #     return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
+        # hypothesis: healing below half HP during adjacent combat prevents lethal follow-up hits.
+        adjacent_hostile = any(distance <= 1 for distance, *_ in self.get_visible_monsters())
         if (
                 (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
+                 or self.blstats.hitpoints < 8
+                 or (adjacent_hostile and self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints)) and items
         ):
             yield True
             self.inventory.quaff(items[0])
@@ -1521,8 +1538,7 @@ class Agent:
                         ((Level.PLANE, 1), (None, None))  # TODO: check level num
                     self.character.parse()
                     self.character.parse_enhance_view()
-                    if self.character.role == Character.HEALER and self.character.race == Character.HUMAN:
-                        self.character.parse_spellcast_view()
+                    # self.character.parse_spellcast_view()
                     self.step(A.Command.AUTOPICKUP)
                     if 'Autopickup: ON' in self.message:
                         self.step(A.Command.AUTOPICKUP)

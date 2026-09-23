@@ -2,8 +2,9 @@ import numba as nb
 import numpy as np
 
 
-@nb.njit('b1[:,:](i2[:,:],i2[:,:],i4)', cache=True)
+@nb.njit(cache=True)
 def disappearance_mask(old_mons, new_mons, max_radius):
+    # Keep monster tracking compiled, but defer compilation until first use.
     ret = np.zeros_like(new_mons, dtype=nb.b1)
     for y in range(new_mons.shape[0]):
         for x in range(new_mons.shape[1]):
@@ -15,7 +16,7 @@ def disappearance_mask(old_mons, new_mons, max_radius):
     return ret
 
 
-@nb.njit('optional(b1[:,:])(i2[:,:],i2[:,:],i2[:,:],i4)', cache=True)
+@nb.njit(cache=True)
 def figure_out_monster_movement(peaceful_mons, aggressive_mons, new_mons, max_radius):
     ret_peaceful_mons = np.zeros_like(peaceful_mons, dtype=nb.b1)
     for y in range(new_mons.shape[0]):
