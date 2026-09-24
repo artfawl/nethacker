@@ -1143,7 +1143,7 @@ class Agent:
                 yielded = True
                 yield True
                 self.character.parse_enhance_view()
-                # self.character.parse_spellcast_view()
+                self.character.parse_spellcast_view()
 
             move_priority_heatmap, actions = combat.fight_heur.get_priorities(self)
             actions.extend(combat.fight_heur.get_move_actions(self, dis, move_priority_heatmap))
@@ -1400,7 +1400,10 @@ class Agent:
         if self.character.spell_fail_chance['healing'] > 0.2:
             return False
         hp_ratio = self.blstats.hitpoints / self.blstats.max_hitpoints
-        low_hp = hp_ratio < 0.5 or (self.blstats.hitpoints < 10 and self.blstats.max_hitpoints > 10)
+        adjacent_hostile = any(distance <= 1 for distance, *_ in self.get_visible_monsters())
+        early_gnome_heal = adjacent_hostile and hp_ratio < 0.75 and self.character.race == self.character.GNOME
+        low_hp = hp_ratio < 0.5 or early_gnome_heal or \
+            (self.blstats.hitpoints < 10 and self.blstats.max_hitpoints > 10)
         return self.blstats.energy >= 5 and low_hp
 
     def should_cast_extra_heal(self):
@@ -1420,24 +1423,24 @@ class Agent:
     @Strategy.wrap
     def emergency_strategy(self):
 
-        # if self.should_cast_extra_heal():
-        #     yield True
-        #     self.cast('extra healing', direction=(0, 0))
-        #     return
+        # hypothesis: use healing resources earlier under adjacent melee threat to protect frail characters across roles.
+        if self.should_cast_extra_heal():
+            yield True
+            self.cast('extra healing', direction=(0, 0))
+            return
 
-        # if self.should_cast_heal():
-        #     yield True
-        #     self.cast('healing', direction=(0, 0))
-        #     return
+        if self.should_cast_heal():
+            yield True
+            self.cast('healing', direction=(0, 0))
+            return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        # hypothesis: healing below half HP during adjacent combat prevents lethal follow-up hits.
         adjacent_hostile = any(distance <= 1 for distance, *_ in self.get_visible_monsters())
         if (
                 (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 8
-                 or (adjacent_hostile and self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints)) and items
+                 or (adjacent_hostile and self.blstats.hitpoints < 0.5 * self.blstats.max_hitpoints)) and items
         ):
             yield True
             self.inventory.quaff(items[0])
@@ -1538,7 +1541,7 @@ class Agent:
                         ((Level.PLANE, 1), (None, None))  # TODO: check level num
                     self.character.parse()
                     self.character.parse_enhance_view()
-                    # self.character.parse_spellcast_view()
+                    self.character.parse_spellcast_view()
                     self.step(A.Command.AUTOPICKUP)
                     if 'Autopickup: ON' in self.message:
                         self.step(A.Command.AUTOPICKUP)
