@@ -49,6 +49,7 @@ def melee_monster_priority(agent, monsters, monster):
 
 def ranged_priority(agent, dy, dx, monsters):
     ret = 11
+    player_hp_ratio = agent.blstats.hitpoints / agent.blstats.max_hitpoints
 
     closest_mon_dis = float('inf')
     for monster in monsters:
@@ -93,6 +94,10 @@ def ranged_priority(agent, dy, dx, monsters):
                 ret -= 6
                 if mon.mname == 'gas spore':  # only gas spore ?
                     ret -= 100
+            if dis == 2 and player_hp_ratio < 0.5 and mon.mname not in WEAK_MONSTERS \
+                    and mon.mname not in ONLY_RANGED_SLOW_MONSTERS:
+                # hypothesis: favor ranged attacks over risky melee trades when HP is low across roles.
+                ret += 22
             return ret, y, x, monster[0]
 
 
@@ -192,6 +197,8 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
         if targeted_monsters:
             # priority = priority * (1 - player_hp_ratio) - 10
             priority = priority - 15
+            if player_hp_ratio < 0.5:
+                priority += 22
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
                 priority -= 100
             ret.append((priority, ('zap', dy, dx, item, targeted_monsters)))
