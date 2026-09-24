@@ -12,10 +12,17 @@ def is_monster_faster(agent, monster):
     return getattr(mon, 'mmove', 12) > 12
 
 
+def melee_danger_threshold(agent, monster):
+    _, _, _, mon, _ = monster
+    baseline = 16 if is_dangerous_monster(monster) else 8
+    level_gap = max(0, getattr(mon, 'mlevel', 0) - agent.blstats.experience_level)
+    speed_margin = max(0, getattr(mon, 'mmove', 12) - 12)
+    # hypothesis: scale low-health caution to how much a monster outlevels the hero.
+    return min(24, baseline + round(3 * level_gap + 0.5 * speed_margin))
+
+
 def imminent_death_on_melee(agent, monster):
-    if is_dangerous_monster(monster):
-        return agent.blstats.hitpoints <= 16
-    return agent.blstats.hitpoints <= 8
+    return agent.blstats.hitpoints <= melee_danger_threshold(agent, monster)
 
 
 def is_dangerous_monster(monster):
