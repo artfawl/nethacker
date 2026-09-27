@@ -1262,11 +1262,12 @@ class DiveLogic:
             self._elbereth_resting = False
             yield False
         near = self._near_hostiles()
-        # hypothesis: a rothe's three melee attacks make it dangerous even
-        # at monster level 2; protect low-HP priests instead of treating it
-        # as a harmless lone monster.
+        # a lone weak monster is better killed than hidden from (engraving gives it a free hit)
+        # hypothesis: a rothe's three attacks can overwhelm a poorly armored
+        # priest even though its monster level is only 2; shelter at low HP.
+        exposed_to_rothe = bool(near) and near[0][3].mname == 'rothe' and bl.armor_class >= 3
         if len(near) == 1 and getattr(near[0][3], 'mlevel', 99) <= 2 and \
-                near[0][3].mname != 'rothe' and bl.hitpoints >= 6:
+                not exposed_to_rothe and bl.hitpoints >= 6:
             self._elbereth_resting = False
             yield False
         if not near or any(self._ignores_elbereth(m[3]) for m in near) or \

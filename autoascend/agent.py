@@ -1092,9 +1092,19 @@ class Agent:
         hostile attack during the faints and 9 of those died (~8%), while rnz(350) fails a prayer 6.2% of the
         time at a 950 gap, 5.5% at 1000 and 3.9% at 1100 -- and the Weak->Fainting transition always faints
         at once (eat.c newuhs), so an approaching monster gets 10+ free turns."""
-        if not jf_config.THREAT_PRAYER_GAP or self.prayer_failed or self.global_logic.dive.diving:
-            return False
         bl = self.blstats
+        if self.prayer_failed or self.global_logic.dive.diving:
+            return False
+        # A rothe pack's three attacks apiece can consume a full faint before
+        # the ordinary prayer gap. At low HP, a risky prayer is the escape.
+        if bl.hunger_state >= Hunger.FAINTING and bl.hitpoints < 0.75 * bl.max_hitpoints and \
+                self.is_safe_to_pray(900):
+            rothes_near = sum(m[3].mname == 'rothe' and m[0] <= 5 for m in self.get_visible_monsters())
+            if rothes_near >= 2:
+                self._pray_reason = 'rothe-pack-faint'
+                return True
+        if not jf_config.THREAT_PRAYER_GAP:
+            return False
         if bl.hunger_state < Hunger.WEAK:
             return False
         if bl.hunger_state == Hunger.WEAK:
