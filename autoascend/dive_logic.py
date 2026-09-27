@@ -1262,8 +1262,11 @@ class DiveLogic:
             self._elbereth_resting = False
             yield False
         near = self._near_hostiles()
-        # a lone weak monster is better killed than hidden from (engraving gives it a free hit)
-        if len(near) == 1 and getattr(near[0][3], 'mlevel', 99) <= 2 and bl.hitpoints >= 6:
+        # hypothesis: a rothe's three melee attacks make it dangerous even
+        # at monster level 2; protect low-HP priests instead of treating it
+        # as a harmless lone monster.
+        if len(near) == 1 and getattr(near[0][3], 'mlevel', 99) <= 2 and \
+                near[0][3].mname != 'rothe' and bl.hitpoints >= 6:
             self._elbereth_resting = False
             yield False
         if not near or any(self._ignores_elbereth(m[3]) for m in near) or \
