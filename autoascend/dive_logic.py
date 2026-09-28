@@ -1496,14 +1496,19 @@ class DiveLogic:
             # a rescue's faints only get longer (no prayer is coming): a lone newt bit a fainted 44-HP XL5 to death
             # in ~100 turns (rescue agent's SIM jf14 s8), so there a lone trivial monster is fought only above 70%
             fight_above = 0.7 if rescue_guard else 0.5
-            threat = not (len(near) == 1 and trivial(near[0]) and bl.hitpoints >= fight_above * bl.max_hitpoints)
+            # hypothesis: a priest with under 50 HP can die to repeated free hits during a single faint,
+            # even from a goblin or rat; shelter before engaging these otherwise trivial monsters.
+            threat = not (len(near) == 1 and trivial(near[0]) and bl.hitpoints >= 50 and
+                          bl.hitpoints >= fight_above * bl.max_hitpoints)
         else:
             # Weak: the faint is still up to ~50 turns away; hold only against what a single faint can't
             # afford: a real fighter (difficulty >= 4: hill orc, rothe, giant ant, dwarf, werejackal), a
             # fast biter (bat, giant bat, little dog), or two monsters above difficulty 1. The first version
             # (monster level >= 2) also held against lone iguanas and kobold lords, which a faint survives.
-            threat = any(difficulty(m) >= 4 or (difficulty(m) >= 2 and getattr(m[3], 'mmove', 0) > 12)
-                         for m in near) or sum(1 for m in near if not trivial(m)) >= 2
+            near_faint = agent.uhunger_weak_estimate()
+            threat = (bl.hitpoints < 50 and near_faint is not None and near_faint <= 15) or \
+                any(difficulty(m) >= 4 or (difficulty(m) >= 2 and getattr(m[3], 'mmove', 0) > 12)
+                    for m in near) or sum(1 for m in near if not trivial(m)) >= 2
         if not threat:
             yield False
         engraving = (agent.inventory.engraving_below_me or '').lower()

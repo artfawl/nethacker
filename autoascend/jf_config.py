@@ -166,9 +166,8 @@ POISON_EATS = False
 POISON_EATS_MIN_HP = 40
 # carry up to this many lichen/lizard corpses as a food reserve instead of eating them off the floor while not
 # Weak (0: off)
-# hypothesis: a stored nonrotting corpse can bridge a neutral priest's
-# unsafe hunger-prayer window and prevent a first-floor starvation loss.
-LICHEN_RESERVE = 3
+# Maximum carried lichen/lizard reserve; Agent.reserve_corpse_limit selects the capacity.
+LICHEN_RESERVE = 4
 # the Dlvl 1 grind ends (DIVE_XL) only fed: Not Hungry within DIVE_FED_GAP turns of the last hunger prayer, or
 # carrying >= DIVE_FED_FOOD nutrition; else it waits for the next hunger prayer (at most DIVE_FED_MAX_WAIT turns)
 DIVE_FED = False

@@ -2188,9 +2188,18 @@ class Agent:
         return sum(item.count for item in flatten_items(self.inventory.items)
                    if item.is_corpse() and item.monster_id in self.RESERVE_CORPSE_IDS)
 
-    def reserve_corpse_enabled(self):
-        return jf_config.LICHEN_RESERVE and self.character.role == Character.PRIEST and \
-            self.character.alignment == Character.NEUTRAL
+    def reserve_corpse_limit(self):
+        # hypothesis: a short-lived hunger gap during the XL 8 grind is safer
+        # when human chaotic and neutral priests can draw on nonrotting food;
+        # chaotic priests benefit from one more stored meal, while carrying
+        # this reserve disrupts the stronger elf and lawful openings.
+        if self.character.role != Character.PRIEST or self.character.race != Character.HUMAN:
+            return 0
+        if self.character.alignment == Character.CHAOTIC:
+            return jf_config.LICHEN_RESERVE
+        if self.character.alignment == Character.NEUTRAL:
+            return max(0, jf_config.LICHEN_RESERVE - 1)
+        return 0
 
     def reserve_corpse(self, monster_id):
         """LICHEN_RESERVE: keep a lichen/lizard corpse (they never rot) instead of eating it off the floor while
@@ -2198,9 +2207,10 @@ class Agent:
         when Weak before a safe prayer gap -- the starved cycles (31% of the base grinds' prayer cycles turned
         Weak 800-899 turns after the last prayer, 26% fainted, and all 9 fainting deaths came in cycles that
         had eaten 0-100 nutrition). We ate ~9 lichen corpses per grind (~1800 nutrition)."""
-        if not (self.reserve_corpse_enabled() and monster_id in self.RESERVE_CORPSE_IDS and
+        limit = self.reserve_corpse_limit()
+        if not (limit and monster_id in self.RESERVE_CORPSE_IDS and
                 self.blstats.hunger_state < Hunger.WEAK and not self.global_logic.dive.diving and
-                self.carried_reserve_corpses() < jf_config.LICHEN_RESERVE):
+                self.carried_reserve_corpses() < limit):
             return False
         # only if the item priority can keep it (it keeps items in order within character.carrying_capacity):
         # a heavy pack left a jf14 lichen corpse neither picked up nor eaten while we walked over it for 400 turns

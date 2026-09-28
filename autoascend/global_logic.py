@@ -133,10 +133,10 @@ class ItemPriority(ItemPriorityBase):
                            key=lambda x: -x.nutrition_per_weight() - 1000 * (x.objs[0].name == 'sprig of wolfsbane')):
             add_item(item)
 
-        if self.agent.reserve_corpse_enabled():
+        if self.agent.reserve_corpse_limit():
             # a never-rotting food reserve (lichen, lizard corpses) for the Weak spells before a safe prayer
             # (agent.reserve_corpse): eaten by eat_from_inventory, like found rations
-            left = jf_config.LICHEN_RESERVE
+            left = self.agent.reserve_corpse_limit()
             for item in filter(lambda i: i.is_corpse() and i.monster_id in self.agent.RESERVE_CORPSE_IDS, items):
                 if left <= 0:
                     break
