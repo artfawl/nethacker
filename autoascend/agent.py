@@ -1092,19 +1092,9 @@ class Agent:
         hostile attack during the faints and 9 of those died (~8%), while rnz(350) fails a prayer 6.2% of the
         time at a 950 gap, 5.5% at 1000 and 3.9% at 1100 -- and the Weak->Fainting transition always faints
         at once (eat.c newuhs), so an approaching monster gets 10+ free turns."""
+        if not jf_config.THREAT_PRAYER_GAP or self.prayer_failed or self.global_logic.dive.diving:
+            return False
         bl = self.blstats
-        if self.prayer_failed or self.global_logic.dive.diving:
-            return False
-        # A rothe pack's three attacks apiece can consume a full faint before
-        # the ordinary prayer gap. At low HP, a risky prayer is the escape.
-        if bl.hunger_state >= Hunger.FAINTING and bl.hitpoints < 0.75 * bl.max_hitpoints and \
-                self.is_safe_to_pray(900):
-            rothes_near = sum(m[3].mname == 'rothe' and m[0] <= 5 for m in self.get_visible_monsters())
-            if rothes_near >= 2:
-                self._pray_reason = 'rothe-pack-faint'
-                return True
-        if not jf_config.THREAT_PRAYER_GAP:
-            return False
         if bl.hunger_state < Hunger.WEAK:
             return False
         if bl.hunger_state == Hunger.WEAK:
@@ -2371,7 +2361,11 @@ class Agent:
 
         # LOWHP_EXACT: only where pray.c sees TROUBLE_HIT -- the DT6A 'HP < 12' rule prayed at 10/49 HP (no HP
         # trouble: base2-jf26 s8 got its lycanthropy cured, stayed at 10 HP with the timeout reset, and died)
-        if jf_config.EARLY_FIXES or jf_config.EXACT_PRAYER or jf_config.LOWHP_EXACT:
+        # hypothesis: human priests waste scarce early prayers at 6-11 HP,
+        # before NetHack treats HP as trouble; reserving them for critical HP
+        # or hunger improves their survival without changing elf openings.
+        if (self.character.role == Character.PRIEST and self.character.race == Character.HUMAN) or \
+                jf_config.EARLY_FIXES or jf_config.EXACT_PRAYER or jf_config.LOWHP_EXACT:
             low_hp = self._critically_low_hp()
         else:
             # DT6A's absolute 'HP < 12' never at full HP or polymorphed: turned into a wererat (8 max HP), an
