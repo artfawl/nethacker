@@ -1060,6 +1060,8 @@ class DiveLogic:
         bl = agent.blstats
         digger = DIVE_REST and self._digger_here()
         rest_below = DIG_REST_BELOW if digger else REST_BELOW
+        if self._late_digger():
+            rest_below = 0.0
         if bl.hitpoints < rest_below * bl.max_hitpoints and not agent.get_visible_monsters() and \
                 bl.hunger_state < Hunger.WEAK and not (digger and self._in_own_pit()) and \
                 not self._gehennom_digger():
@@ -1263,7 +1265,11 @@ class DiveLogic:
             yield False
         near = self._near_hostiles()
         # a lone weak monster is better killed than hidden from (engraving gives it a free hit)
-        if len(near) == 1 and getattr(near[0][3], 'mlevel', 99) <= 2 and bl.hitpoints >= 6:
+        # hypothesis: a rothe's three attacks can overwhelm a poorly armored
+        # priest even though its monster level is only 2; shelter at low HP.
+        exposed_to_rothe = bool(near) and near[0][3].mname == 'rothe' and bl.armor_class >= 3
+        if len(near) == 1 and getattr(near[0][3], 'mlevel', 99) <= 2 and \
+                not exposed_to_rothe and bl.hitpoints >= 6:
             self._elbereth_resting = False
             yield False
         if not near or any(self._ignores_elbereth(m[3]) for m in near) or \
@@ -1830,6 +1836,8 @@ class DiveLogic:
         # a digger takes stairs like a hole: a deep rest to 95% at XL 8 (1 HP per 5 turns) lets the level's
         # monsters come (base-jf25 s13 rested 180 turns at a Dlvl 14 '>' and died there)
         threshold = DIG_REST_BELOW if digger else REST_BEFORE_DESCEND
+        if self._late_digger():
+            threshold = 0.0
         if agent.blstats.hitpoints >= threshold * agent.blstats.max_hitpoints:
             return False
         if digger and agent._hurt_recently(3):
@@ -1852,6 +1860,11 @@ class DiveLogic:
         level = agent.current_level()
         return self.diving and level.dungeon_number in MAIN_LINE and level.dungeon_number != GEHENNOM and \
             level.key() not in self.undiggable and self.digging_tool() is not None
+
+    def _late_digger(self):
+        # hypothesis: from depth 18 a digger gains more progression by making
+        # the next hole immediately than by resting while dangerous monsters arrive.
+        return self.agent.blstats.depth >= 18 and self._digger_here()
 
     def _rest_elbereth(self):
         """DIVE_REST: engrave Elbereth before resting, so that what arrives meanwhile can't melee us (the
@@ -3004,6 +3017,8 @@ class DiveLogic:
             return True
         if tool is not None:
             rest_below = GEHENNOM_DIG_REST_BELOW if self.in_gehennom() else DIG_REST_BELOW
+            if self._late_digger():
+                rest_below = 0.0
             if agent.blstats.hitpoints < rest_below * agent.blstats.max_hitpoints and \
                     not (DIVE_REST and self._in_own_pit()):
                 self._task('rest before digging')
